@@ -4,7 +4,11 @@
 self.importScripts('./service-worker-assets.js');
 self.addEventListener('install', event => event.waitUntil(onInstall(event)));
 self.addEventListener('activate', event => event.waitUntil(onActivate(event)));
-self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
+self.addEventListener('fetch', event => {
+    if (event.request.method === 'GET') {
+        event.respondWith(onFetch(event).catch(onFetchFailed));
+    }
+});
 
 const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
@@ -46,10 +50,6 @@ async function onActivate(event) {
 }
 
 async function onFetch(event) {
-    if (event.request.method !== 'GET') {
-        return fetch(event.request);
-    }
-
     const cache = await caches.open(cacheName);
     const shouldServeIndexHtml = event.request.mode === 'navigate'
         && !manifestUrlList.some(url => url === event.request.url);
@@ -58,6 +58,12 @@ async function onFetch(event) {
         const cachedIndex = await cache.match(indexUrl);
         if (cachedIndex) {
             return cachedIndex;
+        }
+
+        try {
+            return await fetch(indexUrl);
+        } catch {
+            return onFetchFailed();
         }
     }
 
@@ -69,6 +75,10 @@ async function onFetch(event) {
     try {
         return await fetch(event.request);
     } catch {
-        return new Response('', { status: 504, statusText: 'Gateway Timeout' });
+        return onFetchFailed();
     }
+}
+
+function onFetchFailed() {
+    return new Response('', { status: 504, statusText: 'Gateway Timeout' });
 }
