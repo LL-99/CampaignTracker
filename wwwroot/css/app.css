@@ -13,11 +13,17 @@ html, body {
     align-items: center;
 }
 
+.navbar-dark {
+    color: #fff;
+}
+
 .container-fluid {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .navbar-brand {
@@ -47,6 +53,42 @@ html, body {
     height: 1.5em;
     vertical-align: middle;
     width: 1.5em;
+}
+
+.nav {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    margin-bottom: 0;
+    padding-left: 0;
+}
+
+.flex-column {
+    flex-direction: column;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+}
+
+.collapse {
+    display: none;
+}
+
+.px-3 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.px-4 {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+.ps-3 {
+    padding-left: 1rem;
 }
 
 h1:focus {
