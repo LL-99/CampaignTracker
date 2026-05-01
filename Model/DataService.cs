@@ -4,10 +4,9 @@ using CampaignTracker.Model.Structure;
 namespace CampaignTracker.Model
 {
     public class DataService
+        : IDataService
     {
-        public static readonly DataService Instance = new();
-
-        public Campaign Campaign { get; private set; }
+        public Campaign Campaign { get; }
 
 
         public DataService()

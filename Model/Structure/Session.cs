@@ -11,6 +11,7 @@ namespace CampaignTracker.Model.Structure
         public Session(Campaign campaign)
         {
             Campaign = campaign;
+            Campaign.Sessions.Add(this);
         }
 
         public void AddCombat(Combat combat)

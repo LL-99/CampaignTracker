@@ -10,6 +10,7 @@ namespace CampaignTracker.Model.Combats
         public Combat(Campaign campaign)
         {
             Campaign = campaign;
+            Campaign.Combats.Add(this);
         }
 
         public void AddSession(Session session)
