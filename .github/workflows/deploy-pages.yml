@@ -18,6 +18,7 @@ concurrency:
 env:
   DOTNET_VERSION: 10.0.x
   PUBLISH_DIR: bin/Release/net10.0/publish/wwwroot
+  BASE_PATH: /CampaignTracker/
 
 jobs:
   build:
@@ -37,6 +38,11 @@ jobs:
 
       - name: Publish app
         run: dotnet publish CampaignTracker.csproj -c Release
+
+      - name: Configure GitHub Pages base path
+        run: |
+          sed -i 's#<base href="/" />#<base href="${{ env.BASE_PATH }}" />#' "${{ env.PUBLISH_DIR }}/index.html"
+          cp "${{ env.PUBLISH_DIR }}/index.html" "${{ env.PUBLISH_DIR }}/404.html"
 
       - name: Disable Jekyll
         run: touch ${{ env.PUBLISH_DIR }}/.nojekyll
