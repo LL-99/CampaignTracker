@@ -6,6 +6,7 @@ namespace CampaignTracker.Model.Combats
     {
         public Campaign Campaign { get; set; }
         public HashSet<Session> Sessions { get; set; } = [];
+        public ActionLog ActionLog { get; set; }
 
         public Combat(Campaign campaign)
         {
