@@ -36,13 +36,14 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Configure GitHub Pages base path
+        run: sed -i 's#<base href="/" />#<base href="${{ env.BASE_PATH }}" />#' wwwroot/index.html
+
       - name: Publish app
         run: dotnet publish CampaignTracker.csproj -c Release
 
-      - name: Configure GitHub Pages base path
-        run: |
-          sed -i 's#<base href="/" />#<base href="${{ env.BASE_PATH }}" />#' "${{ env.PUBLISH_DIR }}/index.html"
-          cp "${{ env.PUBLISH_DIR }}/index.html" "${{ env.PUBLISH_DIR }}/404.html"
+      - name: Create GitHub Pages fallback
+        run: cp "${{ env.PUBLISH_DIR }}/index.html" "${{ env.PUBLISH_DIR }}/404.html"
 
       - name: Disable Jekyll
         run: touch ${{ env.PUBLISH_DIR }}/.nojekyll

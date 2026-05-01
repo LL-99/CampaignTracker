@@ -19,7 +19,7 @@ async function onInstall(event) {
     console.info('Service worker: Install');
 
     // Fetch and cache all matching items from the assets manifest
-const assetsRequests = self.assetsManifest.assets
+    const assetsRequests = self.assetsManifest.assets
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
         .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
         .map(asset => {
@@ -31,6 +31,7 @@ const assetsRequests = self.assetsManifest.assets
             return new Request(assetUrl, requestInit);
         });
     await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
+    await self.skipWaiting();
 }
 
 async function onActivate(event) {
@@ -41,6 +42,7 @@ async function onActivate(event) {
     await Promise.all(cacheKeys
         .filter(key => key.startsWith(cacheNamePrefix) && key !== cacheName)
         .map(key => caches.delete(key)));
+    await self.clients.claim();
 }
 
 async function onFetch(event) {
