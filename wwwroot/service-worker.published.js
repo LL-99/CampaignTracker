@@ -19,10 +19,17 @@ async function onInstall(event) {
     console.info('Service worker: Install');
 
     // Fetch and cache all matching items from the assets manifest
-    const assetsRequests = self.assetsManifest.assets
+const assetsRequests = self.assetsManifest.assets
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
         .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
-        .map(asset => new Request(new URL(asset.url, baseUrl).href, { integrity: asset.hash, cache: 'no-cache' }));
+        .map(asset => {
+            const assetUrl = new URL(asset.url, baseUrl).href;
+            const requestInit = asset.url === 'index.html'
+                ? { cache: 'no-cache' }
+                : { integrity: asset.hash, cache: 'no-cache' };
+
+            return new Request(assetUrl, requestInit);
+        });
     await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
 }
 

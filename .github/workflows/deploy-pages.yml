@@ -43,6 +43,7 @@ jobs:
         run: |
           sed -i 's#<base href="/" />#<base href="${{ env.BASE_PATH }}" />#' "${{ env.PUBLISH_DIR }}/index.html"
           cp "${{ env.PUBLISH_DIR }}/index.html" "${{ env.PUBLISH_DIR }}/404.html"
+          test -f "${{ env.PUBLISH_DIR }}/lib/bootstrap/dist/css/bootstrap.min.css"
 
       - name: Disable Jekyll
         run: touch ${{ env.PUBLISH_DIR }}/.nojekyll
