@@ -27,7 +27,11 @@ namespace CampaignTracker.Model.Structure
         public void PostInit(Campaign campaign)
         {
             Campaign = campaign;
-            Combats = CombatGUIDs.Select(x => campaign.Combats.First(y => y.GUID == x)).ToList();
+            Combats = campaign.Combats
+                .Where(combat => CombatGUIDs.Contains(combat.GUID) || combat.SessionGUIDs.Contains(GUID))
+                .ToList();
+
+            CombatGUIDs = Combats.Select(combat => combat.GUID).Distinct().ToList();
         }
 
 
@@ -39,10 +43,25 @@ namespace CampaignTracker.Model.Structure
 
         public void AddCombat(Combat combat)
         {
-            Combats.Add(combat);
-            CombatGUIDs.Add(combat.GUID);
+            if (!Combats.Contains(combat))
+            {
+                Combats.Add(combat);
+            }
 
-            combat.Sessions.Add(this);
+            if (!CombatGUIDs.Contains(combat.GUID))
+            {
+                CombatGUIDs.Add(combat.GUID);
+            }
+
+            if (!combat.Sessions.Contains(this))
+            {
+                combat.Sessions.Add(this);
+            }
+
+            if (!combat.SessionGUIDs.Contains(GUID))
+            {
+                combat.SessionGUIDs.Add(GUID);
+            }
         }
     }
 }

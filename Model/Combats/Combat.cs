@@ -30,15 +30,26 @@ namespace CampaignTracker.Model.Combats
         public void PostInit(Campaign campaign)
         {
             Campaign = campaign;
-            Sessions = SessionGUIDs.Select(x => campaign.Sessions.First(y => y.GUID == x)).ToList();
+            Sessions = campaign.Sessions
+                .Where(session => SessionGUIDs.Contains(session.GUID) || session.CombatGUIDs.Contains(GUID))
+                .ToList();
+
+            SessionGUIDs = Sessions.Select(session => session.GUID).Distinct().ToList();
         }
 
         public void AddSession(Session session)
         {
-            Sessions.Add(session);
-            SessionGUIDs.Add(session.GUID);
+            if (!Sessions.Contains(session))
+            {
+                Sessions.Add(session);
+            }
 
-            session.Combats.Add(this);
+            if (!SessionGUIDs.Contains(session.GUID))
+            {
+                SessionGUIDs.Add(session.GUID);
+            }
+
+            session.AddCombat(this);
         }
     }
 }
