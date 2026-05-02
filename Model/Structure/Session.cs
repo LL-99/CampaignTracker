@@ -14,6 +14,17 @@ namespace CampaignTracker.Model.Structure
         public List<Combat> Combats { get; private set; } = [];
 
 
+        public Session(List<Guid> combatGUIDs)
+        {
+            CombatGUIDs = combatGUIDs;
+        }
+
+        public void PostInit(Campaign campaign)
+        {
+            Combats = CombatGUIDs.Select(x => campaign.Combats.First(y => y.GUID == x)).ToList();
+        }
+
+
         public Session(Campaign campaign)
         {
             Campaign = campaign;
@@ -23,6 +34,8 @@ namespace CampaignTracker.Model.Structure
         public void AddCombat(Combat combat)
         {
             Combats.Add(combat);
+            CombatGUIDs.Add(combat.GUID);
+
             combat.Sessions.Add(this);
         }
     }

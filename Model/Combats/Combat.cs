@@ -6,6 +6,7 @@ namespace CampaignTracker.Model.Combats
     public class Combat : DataElement
     {
         public ActionLog ActionLog { get; set; }
+        public List<Guid> SessionGUIDs { get; set; } = [];
 
         [JsonIgnore]
         public Campaign Campaign { get; set; }
@@ -22,6 +23,8 @@ namespace CampaignTracker.Model.Combats
         public void AddSession(Session session)
         {
             Sessions.Add(session);
+            SessionGUIDs.Add(session.GUID);
+
             session.Combats.Add(this);
         }
     }
