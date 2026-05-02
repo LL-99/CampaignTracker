@@ -1,0 +1,25 @@
+﻿@using CampaignTracker.Model.Structure
+
+
+<MudText Typo="Typo.h4">Session Config</MudText>
+
+<MudTextField @bind-Value=@Session.Name Label="Session Name" Variant="Variant.Outlined" />
+
+<MudGrid>
+	<MudItem xs="4">
+		<MudText Typo="Typo.h5">Player Characters</MudText>
+	</MudItem>
+		
+	<MudItem xs="4">
+		<MudText Typo="Typo.h5">NPCs</MudText>
+	</MudItem>
+
+	<MudItem xs="4">
+		<MudText Typo="Typo.h5">Enemies (pre-filter)</MudText>
+	</MudItem>
+</MudGrid>
+
+@code {
+	[Parameter]
+	public Session Session { get; set; }
+}

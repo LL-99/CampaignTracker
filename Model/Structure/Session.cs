@@ -1,15 +1,20 @@
 ﻿using CampaignTracker.Model.Combats;
+using CampaignTracker.Model.Creatures;
 using Newtonsoft.Json;
 
 namespace CampaignTracker.Model.Structure
 {
     public class Session : DataElement
     {
+        public List<Guid> PlayerCharacterGUIDs { get; private set; } = [];
         public List<Guid> CombatGUIDs { get; private set; } = [];
         public string Name { get; set; }
 
         [JsonIgnore]
         public Campaign Campaign { get; private set; }
+
+        [JsonIgnore]
+        public List<PlayerCharacter> PlayerCharacters { get; private set; } = [];
 
         [JsonIgnore]
         public List<Combat> Combats { get; private set; } = [];
