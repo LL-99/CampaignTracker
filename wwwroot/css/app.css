@@ -91,3 +91,13 @@ h1:focus {
 code {
     color: #c02d76;
 }
+
+.campaign-json-preview {
+    margin: 0;
+    padding: 1rem;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    white-space: pre;
+}

@@ -7,6 +7,6 @@ namespace CampaignTracker.Model
     {
         Campaign Campaign { get; }
 
-        string GetCampaignString() => JsonConvert.SerializeObject(Campaign);
+        string GetCampaignString() => JsonConvert.SerializeObject(Campaign, Formatting.Indented);
     }
 }

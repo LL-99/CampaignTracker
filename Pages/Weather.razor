@@ -6,7 +6,7 @@
 <MudStack Spacing="4">
     <MudStack Spacing="1">
         <MudText Typo="Typo.h4" HtmlTag="h1">Weather</MudText>
-        <MudText Typo="Typo.body1" Color="Color.Secondary">
+        <MudText Typo="Typo.body1">
             Sample forecast data rendered with MudBlazor table components.
         </MudText>
     </MudStack>
@@ -30,7 +30,7 @@
             <MudTd DataLabel="Summary">@context.Summary</MudTd>
         </RowTemplate>
         <LoadingContent>
-            <MudText Class="pa-4" Color="Color.Secondary">Loading forecast...</MudText>
+            <MudText Class="pa-4">Loading forecast...</MudText>
         </LoadingContent>
     </MudTable>
 </MudStack>
