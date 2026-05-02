@@ -13,14 +13,20 @@ namespace CampaignTracker.Model.Structure
         [JsonIgnore]
         public List<Combat> Combats { get; private set; } = [];
 
+        public Session()
+        {
+            Campaign = null!;
+        }
 
         public Session(List<Guid> combatGUIDs)
         {
             CombatGUIDs = combatGUIDs;
+            Campaign = null!;
         }
 
         public void PostInit(Campaign campaign)
         {
+            Campaign = campaign;
             Combats = CombatGUIDs.Select(x => campaign.Combats.First(y => y.GUID == x)).ToList();
         }
 

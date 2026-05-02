@@ -1,7 +1,9 @@
 ﻿@page "/"
 @using CampaignTracker.Model.Combats
+@using CampaignTracker.Model.Structure
 
 @inject IDataService DataService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Home</PageTitle>
 
@@ -16,12 +18,37 @@
             </MudStack>
         </MudItem>
         <MudItem xs="12" md="4" Class="d-flex justify-end">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="AddCombatButtonClicked">
-                Add Combat
-            </MudButton>
+            <MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           OnClick="ExportButtonClicked"
+                           Disabled="@(DataService.Campaign is null)">
+                    Export
+                </MudButton>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           OnClick="ImportButtonClicked">
+                    Import
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddSessionButtonClicked"
+                           Disabled="@(DataService.Campaign is null)">
+                    Add Session
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddCombatButtonClicked"
+                           Disabled="@(DataService.Campaign is null)">
+                    Add Combat
+                </MudButton>
+            </MudStack>
         </MudItem>
     </MudGrid>
 
@@ -29,25 +56,25 @@
         <MudItem xs="12" sm="6" md="3">
             <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.overline">Sessions</MudText>
-                <MudText Typo="Typo.h4">@DataService.Campaign.Sessions.Count</MudText>
+                <MudText Typo="Typo.h4">@(DataService.Campaign?.Sessions.Count ?? 0)</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
             <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.overline">Combats</MudText>
-                <MudText Typo="Typo.h4">@DataService.Campaign.Combats.Count</MudText>
+                <MudText Typo="Typo.h4">@(DataService.Campaign?.Combats.Count ?? 0)</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
             <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.overline">Players</MudText>
-                <MudText Typo="Typo.h4">@DataService.Campaign.PlayerCharacters.Count</MudText>
+                <MudText Typo="Typo.h4">@(DataService.Campaign?.PlayerCharacters.Count ?? 0)</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
             <MudPaper Elevation="1" Class="pa-4">
                 <MudText Typo="Typo.overline">Creatures</MudText>
-                <MudText Typo="Typo.h4">@DataService.Campaign.CustomCreatures.Count</MudText>
+                <MudText Typo="Typo.h4">@(DataService.Campaign?.CustomCreatures.Count ?? 0)</MudText>
             </MudPaper>
         </MudItem>
     </MudGrid>
@@ -67,8 +94,41 @@
 
 
 @code {
+    private async Task ExportButtonClicked()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", DataService.GetCampaignString());
+        DataService.ClearCampaign();
+    }
+
+    private async Task ImportButtonClicked()
+    {
+        try
+        {
+            var json = await JSRuntime.InvokeAsync<string>("navigator.clipboard.readText");
+            DataService.TrySetCampaignString(json);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private void AddSessionButtonClicked()
+    {
+        if (DataService.Campaign is not Campaign campaign)
+        {
+            return;
+        }
+
+        _ = new Session(campaign);
+    }
+
     private void AddCombatButtonClicked()
     {
-        _ = new Combat(DataService.Campaign);
+        if (DataService.Campaign is not Campaign campaign)
+        {
+            return;
+        }
+
+        _ = new Combat(campaign);
     }
 }
