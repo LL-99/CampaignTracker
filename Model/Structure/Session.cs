@@ -6,6 +6,7 @@ namespace CampaignTracker.Model.Structure
     public class Session : DataElement
     {
         public List<Guid> CombatGUIDs { get; private set; } = [];
+        public string Name { get; set; }
 
         [JsonIgnore]
         public Campaign Campaign { get; private set; }

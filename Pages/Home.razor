@@ -8,127 +8,174 @@
 <PageTitle>Home</PageTitle>
 
 <MudStack Spacing="4">
-    <MudGrid Spacing="2">
-        <MudItem xs="12" md="8">
-            <MudStack Spacing="1">
-                <MudText Typo="Typo.h4" HtmlTag="h1">Campaign Dashboard</MudText>
-                <MudText Typo="Typo.body1">
-                    Track sessions, combats, player characters, and custom creatures from one MudBlazor workspace.
-                </MudText>
-            </MudStack>
-        </MudItem>
-        <MudItem xs="12" md="4" Class="d-flex justify-end">
-            <MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Default"
-                           Size="Size.Small"
-                           OnClick="ExportButtonClicked"
-                           Disabled="@(DataService.Campaign is null)">
-                    Export
-                </MudButton>
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Default"
-                           Size="Size.Small"
-                           OnClick="ImportButtonClicked">
-                    Import
-                </MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="AddSessionButtonClicked"
-                           Disabled="@(DataService.Campaign is null)">
-                    Add Session
-                </MudButton>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="AddCombatButtonClicked"
-                           Disabled="@(DataService.Campaign is null)">
-                    Add Combat
-                </MudButton>
-            </MudStack>
-        </MudItem>
-    </MudGrid>
+	<MudGrid Spacing="2">
+		<MudItem xs="12" md="8">
+			<MudStack Spacing="1">
+				<MudText Typo="Typo.h4" HtmlTag="h1">Campaign Dashboard</MudText>
+				<MudText Typo="Typo.body1">
+					Track sessions, combats, player characters, and custom creatures from one MudBlazor workspace.
+				</MudText>
+			</MudStack>
+		</MudItem>
+	</MudGrid>
+	
+	<MudText Typo="Typo.body1">
+		Track sessions, combats, player characters, and custom creatures from one MudBlazor workspace.
+	</MudText>
 
-    <MudGrid Spacing="3">
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="1" Class="pa-4">
-                <MudText Typo="Typo.overline">Sessions</MudText>
-                <MudText Typo="Typo.h4">@(DataService.Campaign?.Sessions.Count ?? 0)</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="1" Class="pa-4">
-                <MudText Typo="Typo.overline">Combats</MudText>
-                <MudText Typo="Typo.h4">@(DataService.Campaign?.Combats.Count ?? 0)</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="1" Class="pa-4">
-                <MudText Typo="Typo.overline">Players</MudText>
-                <MudText Typo="Typo.h4">@(DataService.Campaign?.PlayerCharacters.Count ?? 0)</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="1" Class="pa-4">
-                <MudText Typo="Typo.overline">Creatures</MudText>
-                <MudText Typo="Typo.h4">@(DataService.Campaign?.CustomCreatures.Count ?? 0)</MudText>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+	<MudList T="CampaignElement">
+		@if (DataService.Campaign != null)
+		{
+			for (int i = 0; i < DataService.Campaign.Sessions.Count; i++)
+			{
+				var session = DataService.Campaign.Sessions[i];
+				<MudListItem Text=@($"Session {session.Name}") OnClick="SessionClicked">
+					<NestedList>
+						@if(session.Combats.Count > 0){
+							var combats = session.Combats;
 
-    <MudPaper Elevation="1">
-        <MudToolBar Dense="true">
-            <MudText Typo="Typo.h6">Campaign Data</MudText>
-            <MudSpacer />
-            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-                JSON Preview
-            </MudChip>
-        </MudToolBar>
-        <MudDivider />
-        <pre class="campaign-json-preview">@DataService.GetCampaignString()</pre>
-    </MudPaper>
+							for (int j = 0; j < combats.Count; j++)
+							{
+								<MudListItem>Session @i, Combat @j</MudListItem>
+							}
+						}
+					</NestedList>
+				</MudListItem>
+			}
+		}
+	</MudList>
+
+	<MudText>Latest selection: @LatestSel</MudText>
+
+	<MudTabs Elevation="2">
+
+	</MudTabs>
+
+	<MudGrid Spacing="2">
+		<MudItem xs="12" md="4" Class="d-flex justify-end">
+			<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
+				<MudButton Variant="Variant.Text"
+						   Color="Color.Default"
+						   Size="Size.Small"
+						   OnClick="ExportButtonClicked"
+						   Disabled="@(DataService.Campaign is null)">
+					Export
+				</MudButton>
+				<MudButton Variant="Variant.Text"
+						   Color="Color.Default"
+						   Size="Size.Small"
+						   OnClick="ImportButtonClicked">
+					Import
+				</MudButton>
+				<MudButton Variant="Variant.Outlined"
+						   Color="Color.Primary"
+						   Size="Size.Small"
+						   StartIcon="@Icons.Material.Filled.Add"
+						   OnClick="AddSessionButtonClicked"
+						   Disabled="@(DataService.Campaign is null)">
+					Add Session
+				</MudButton>
+				<MudButton Variant="Variant.Filled"
+						   Color="Color.Primary"
+						   Size="Size.Small"
+						   StartIcon="@Icons.Material.Filled.Add"
+						   OnClick="AddCombatButtonClicked"
+						   Disabled="@(DataService.Campaign is null)">
+					Add Combat
+				</MudButton>
+			</MudStack>
+		</MudItem>
+	</MudGrid>
+
+	<MudGrid Spacing="3">
+		<MudItem xs="12" sm="6" md="3">
+			<MudPaper Elevation="1" Class="pa-4">
+				<MudText Typo="Typo.overline">Sessions</MudText>
+				<MudText Typo="Typo.h4">@(DataService.Campaign?.Sessions.Count ?? 0)</MudText>
+			</MudPaper>
+		</MudItem>
+		<MudItem xs="12" sm="6" md="3">
+			<MudPaper Elevation="1" Class="pa-4">
+				<MudText Typo="Typo.overline">Combats</MudText>
+				<MudText Typo="Typo.h4">@(DataService.Campaign?.Combats.Count ?? 0)</MudText>
+			</MudPaper>
+		</MudItem>
+		<MudItem xs="12" sm="6" md="3">
+			<MudPaper Elevation="1" Class="pa-4">
+				<MudText Typo="Typo.overline">Players</MudText>
+				<MudText Typo="Typo.h4">@(DataService.Campaign?.PlayerCharacters.Count ?? 0)</MudText>
+			</MudPaper>
+		</MudItem>
+		<MudItem xs="12" sm="6" md="3">
+			<MudPaper Elevation="1" Class="pa-4">
+				<MudText Typo="Typo.overline">Creatures</MudText>
+				<MudText Typo="Typo.h4">@(DataService.Campaign?.CustomCreatures.Count ?? 0)</MudText>
+			</MudPaper>
+		</MudItem>
+	</MudGrid>
+
+	<MudPaper Elevation="1">
+		<MudToolBar Dense="true">
+			<MudText Typo="Typo.h6">Campaign Data</MudText>
+			<MudSpacer />
+			<MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+				JSON Preview
+			</MudChip>
+		</MudToolBar>
+		<MudDivider />
+		<pre class="campaign-json-preview">@DataService.GetCampaignString()</pre>
+	</MudPaper>
 </MudStack>
 
 
-@code {
-    private async Task ExportButtonClicked()
-    {
-        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", DataService.GetCampaignString());
-        DataService.ClearCampaign();
-    }
+	@code {
+	private async Task ExportButtonClicked()
+	{
+		await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", DataService.GetCampaignString());
+		DataService.ClearCampaign();
+	}
 
-    private async Task ImportButtonClicked()
-    {
-        try
-        {
-            var json = await JSRuntime.InvokeAsync<string>("navigator.clipboard.readText");
-            DataService.TrySetCampaignString(json);
-        }
-        catch (JSException)
-        {
-        }
-    }
+	private async Task ImportButtonClicked()
+	{
+		try
+		{
+			var json = await JSRuntime.InvokeAsync<string>("navigator.clipboard.readText");
+			DataService.TrySetCampaignString(json);
+		}
+		catch (JSException)
+		{
+		}
+	}
 
-    private void AddSessionButtonClicked()
-    {
-        if (DataService.Campaign is not Campaign campaign)
-        {
-            return;
-        }
+	private void AddSessionButtonClicked()
+	{
+		if (DataService.Campaign is not Campaign campaign)
+		{
+			return;
+		}
 
-        _ = new Session(campaign);
-    }
+		_ = new Session(campaign);
+	}
 
-    private void AddCombatButtonClicked()
-    {
-        if (DataService.Campaign is not Campaign campaign)
-        {
-            return;
-        }
+	private void AddCombatButtonClicked()
+	{
+		if (DataService.Campaign is not Campaign campaign)
+		{
+			return;
+		}
 
-        _ = new Combat(campaign);
-    }
+		_ = new Combat(campaign);
+	}
+
+
+
+	public string LatestSel { get; set; } = "none";
+
+	private void SessionClicked(MouseEventArgs args)
+	{
+		LatestSel = "Session";
+	}
+
+
+	public record CampaignElement(bool IsSession, Session? Session, Combat? Combat);
 }

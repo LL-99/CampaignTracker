@@ -17,8 +17,8 @@ namespace CampaignTracker.Model
             var c1 = new Combat(Campaign);
             var c2 = new Combat(Campaign);
 
-            var s1 = new Session(Campaign);
-            var s2 = new Session(Campaign);
+            var s1 = new Session(Campaign) { Name = "Test Session 1" };
+            var s2 = new Session(Campaign) { Name = "Test Session 2" };
 
             s1.AddCombat(c1);
             s1.AddCombat(c2);
