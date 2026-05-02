@@ -1,12 +1,17 @@
 ﻿using CampaignTracker.Model.Structure;
+using Newtonsoft.Json;
 
 namespace CampaignTracker.Model.Combats
 {
     public class Combat : DataElement
     {
-        public Campaign Campaign { get; set; }
-        public HashSet<Session> Sessions { get; set; } = [];
         public ActionLog ActionLog { get; set; }
+
+        [JsonIgnore]
+        public Campaign Campaign { get; set; }
+
+        [JsonIgnore]
+        public List<Session> Sessions { get; set; } = [];
 
         public Combat(Campaign campaign)
         {

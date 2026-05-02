@@ -1,4 +1,4 @@
-﻿using CampaignTracker.Model.Characters;
+﻿using CampaignTracker.Model.Creatures;
 
 namespace CampaignTracker.Model.Combats
 {

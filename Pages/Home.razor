@@ -1,4 +1,6 @@
 ﻿@page "/"
+@using CampaignTracker.Model.Combats
+@using MudBlazor
 
 @inject IDataService DataService
 
@@ -8,11 +10,23 @@
 
 Welcome to your new app.
 
+<MudText>@DataService.GetCampaignString()</MudText>
+
+<MudButton OnClick="AddCombatButtonClicked">Add Combat</MudButton>
+
+
 @code {
     protected override void OnInitialized()
     {
         base.OnInitialized();
 
         Console.WriteLine("C#: " + DataService.Campaign.Combats.Count);
+    }
+
+    void AddCombatButtonClicked()
+    {
+        var c = new Combat(DataService.Campaign);
+
+        DataService.Campaign.Combats.Add(c);
     }
 }
