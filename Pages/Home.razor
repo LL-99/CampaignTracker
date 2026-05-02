@@ -29,14 +29,23 @@
 			for (int i = 0; i < DataService.Campaign.Sessions.Count; i++)
 			{
 				var session = DataService.Campaign.Sessions[i];
-				<MudListItem Text=@($"Session {session.Name}") OnClick="SessionClicked">
+				<MudListItem Text=@($"Session {session.Name}")
+							 Value="@(CampaignElement.FromSession(session))"
+							 ExpandedChanged="@(_ => SessionClicked(session))"
+							 OnClick="@(() => SessionClicked(session))">
 					<NestedList>
 						@if(session.Combats.Count > 0){
 							var combats = session.Combats;
 
 							for (int j = 0; j < combats.Count; j++)
 							{
-								<MudListItem>Session @i, Combat @j</MudListItem>
+								var combat = combats[j];
+
+								<div @onclick:stopPropagation="true">
+									<MudListItem Text=@($"Session {i}, Combat {j}")
+												 Value="@(CampaignElement.FromCombat(combat))"
+												 OnClick="@(() => CombatClicked(combat))" />
+								</div>
 							}
 						}
 					</NestedList>
@@ -45,7 +54,7 @@
 		}
 	</MudList>
 
-	<MudText>Latest selection: @LatestSel</MudText>
+	<MudText>Latest selection: @LatestSelText</MudText>
 
 	<MudTabs Elevation="2">
 
@@ -169,13 +178,30 @@
 
 
 
-	public string LatestSel { get; set; } = "none";
+	public CampaignElement? LatestSel { get; set; }
 
-	private void SessionClicked(MouseEventArgs args)
+	private string LatestSelText => LatestSel switch
 	{
-		LatestSel = "Session";
+		{ IsSession: true, Session: { } session } => $"Session {session.Name}",
+		{ IsSession: false, Combat: { } combat } => $"Combat {combat.GUID}",
+		_ => "none"
+	};
+
+	private void SessionClicked(Session session)
+	{
+		LatestSel = CampaignElement.FromSession(session);
+	}
+
+	private void CombatClicked(Combat combat)
+	{
+		LatestSel = CampaignElement.FromCombat(combat);
 	}
 
 
-	public record CampaignElement(bool IsSession, Session? Session, Combat? Combat);
+	public record CampaignElement(bool IsSession, Session? Session, Combat? Combat)
+	{
+		public static CampaignElement FromSession(Session session) => new(true, session, null);
+
+		public static CampaignElement FromCombat(Combat combat) => new(false, null, combat);
+	}
 }
