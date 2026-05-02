@@ -14,39 +14,45 @@
 			<MudStack Spacing="1">
 				<MudText Typo="Typo.h4" HtmlTag="h1">Campaign Dashboard</MudText>
 				<MudText Typo="Typo.body1">
-					Track sessions, combats, player characters, and custom creatures from one MudBlazor workspace.
+					Track sessions, combats, player characters, NPCs, and enemies from one MudBlazor workspace.
 				</MudText>
 			</MudStack>
 		</MudItem>
 	</MudGrid>
-	
-	<MudText Typo="Typo.body1">
-		Track sessions, combats, player characters, and custom creatures from one MudBlazor workspace.
-	</MudText>
+
+	@if (DataService.Campaign is not null)
+	{
+		<MudPaper Elevation="1" Class="pa-3">
+			<MudText Typo="Typo.h5" Class="mb-2">Campaign Config</MudText>
+			<CampaignDisplay Campaign="DataService.Campaign" />
+		</MudPaper>
+	}
 
 	<MudGrid>
 		<MudItem xs="3">
 			<MudList T="CampaignElement">
 				@if (DataService.Campaign != null)
 				{
-					for (int i = 0; i < DataService.Campaign.Sessions.Count; i++)
+					var sortedSessions = DataService.Campaign.Sessions.OrderBy(session => session.DateUtc).ToList();
+
+					for (int i = 0; i < sortedSessions.Count; i++)
 					{
-						var session = DataService.Campaign.Sessions[i];
-						<MudListItem Text=@($"Session {session.Name}")
+						var session = sortedSessions[i];
+						<MudListItem Text=@($"Session {i + 1}: {session.Name}")
 									 Value="@(CampaignElement.FromSession(session))"
 									 ExpandedChanged="@(_ => SessionClicked(session))"
 									 OnClick="@(() => SessionClicked(session))">
 							<NestedList>
 								@if (session.Combats.Count > 0)
 								{
-									var combats = session.Combats;
+									var combats = session.Combats.OrderBy(combat => combat.Name).ToList();
 
 									for (int j = 0; j < combats.Count; j++)
 									{
 										var combat = combats[j];
 
 										<div @onclick:stopPropagation="true">
-											<MudListItem Text=@($"Session {i}, Combat {j}")
+											<MudListItem Text=@(string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {j + 1}" : combat.Name)
 														 Value="@(CampaignElement.FromCombat(combat))"
 														 OnClick="@(() => CombatClicked(combat))" />
 										</div>
@@ -68,14 +74,13 @@
 				{
 					<SessionDisplay Session=@LatestSel.Session />
 				}
+				else if (LatestSel.Combat is not null)
+				{
+					<CombatDisplay Combat="@LatestSel.Combat" />
+				}
 			}
 		</MudItem>
 	</MudGrid>
-
-
-	<MudTabs Elevation="2">
-
-	</MudTabs>
 
 	<MudGrid Spacing="2">
 		<MudItem xs="12" md="4" Class="d-flex justify-end">
@@ -134,8 +139,14 @@
 		</MudItem>
 		<MudItem xs="12" sm="6" md="3">
 			<MudPaper Elevation="1" Class="pa-4">
-				<MudText Typo="Typo.overline">Creatures</MudText>
-				<MudText Typo="Typo.h4">@(DataService.Campaign?.CustomCreatures.Count ?? 0)</MudText>
+				<MudText Typo="Typo.overline">NPCs</MudText>
+				<MudText Typo="Typo.h4">@(DataService.Campaign?.Npcs.Count ?? 0)</MudText>
+			</MudPaper>
+		</MudItem>
+		<MudItem xs="12" sm="6" md="3">
+			<MudPaper Elevation="1" Class="pa-4">
+				<MudText Typo="Typo.overline">Enemies</MudText>
+				<MudText Typo="Typo.h4">@(DataService.Campaign?.Enemies.Count ?? 0)</MudText>
 			</MudPaper>
 		</MudItem>
 	</MudGrid>
@@ -180,7 +191,17 @@
 			return;
 		}
 
-		_ = new Session(campaign);
+		var nextDate = campaign.Sessions.Count == 0
+			? DateTime.UtcNow
+			: campaign.Sessions.Max(session => session.DateUtc).AddDays(7);
+
+		var session = new Session(campaign)
+		{
+			Name = $"Session {campaign.Sessions.Count}",
+			DateUtc = nextDate
+		};
+
+		LatestSel = CampaignElement.FromSession(session);
 	}
 
 	private void AddCombatButtonClicked()
@@ -190,7 +211,17 @@
 			return;
 		}
 
-		_ = new Combat(campaign);
+		var combat = new Combat(campaign)
+		{
+			Name = $"Combat {campaign.Combats.Count}"
+		};
+
+		if (LatestSel?.Session is { } session)
+		{
+			session.AddCombat(combat);
+		}
+
+		LatestSel = CampaignElement.FromCombat(combat);
 	}
 
 
@@ -200,7 +231,7 @@
 	private string LatestSelText => LatestSel switch
 	{
 		{ IsSession: true, Session: { } session } => $"Session {session.Name}",
-		{ IsSession: false, Combat: { } combat } => $"Combat {combat.GUID}",
+		{ IsSession: false, Combat: { } combat } => string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {combat.GUID}" : $"Combat {combat.Name}",
 		_ => "none"
 	};
 

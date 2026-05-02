@@ -7,6 +7,8 @@
     {
         public override CreatureType Type => CreatureType.Static;
 
-        public CreatureStats Stats { get; set; }
+        public CreatureStats Stats { get; set; } = new();
+
+        public int? ChallengeRating { get; set; }
     }
 }

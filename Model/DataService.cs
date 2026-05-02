@@ -1,4 +1,5 @@
 ﻿using CampaignTracker.Model.Combats;
+using CampaignTracker.Model.Creatures;
 using CampaignTracker.Model.Structure;
 using Newtonsoft.Json;
 
@@ -9,21 +10,9 @@ namespace CampaignTracker.Model
     {
         public Campaign? Campaign { get; private set; }
 
-
         public DataService()
         {
-            Campaign = new();
-
-            var c1 = new Combat(Campaign);
-            var c2 = new Combat(Campaign);
-
-            var s1 = new Session(Campaign) { Name = "Test Session 1" };
-            var s2 = new Session(Campaign) { Name = "Test Session 2" };
-
-            s1.AddCombat(c1);
-            s1.AddCombat(c2);
-
-            c2.AddSession(s2);
+            Campaign = CreateTestCampaign();
         }
 
         public void ClearCampaign()
@@ -66,6 +55,152 @@ namespace CampaignTracker.Model
             {
                 session.PostInit(campaign);
             }
+        }
+
+        private static Campaign CreateTestCampaign()
+        {
+            var campaign = new Campaign();
+
+            var mira = Player("Mira Thorn", ("Ranger 6", 52), ("Ranger 5 / Rogue 1", 48));
+            var owen = Player("Owen Ashmantle", ("Cleric 6", 45), ("Cleric 5", 39));
+            var seraphine = Player("Seraphine Vale", ("Wizard 6", 32), ("Wizard 5", 27));
+            var thalia = Player("Thalia Voss", ("Fighter 6", 61), ("Fighter 5", 54));
+
+            foreach (var playerCharacter in new[] { mira, owen, seraphine, thalia })
+            {
+                campaign.AddPlayerCharacter(playerCharacter);
+            }
+
+            var captainIlyra = Static("Captain Ilyra Dawnwatch", 38, 2);
+            var brotherCalem = Static("Brother Calem", 22, 1);
+            var archivistNera = Static("Archivist Nera", 18, null);
+            var quartermasterRusk = Static("Quartermaster Rusk", 31, 1);
+
+            foreach (var npc in new[] { archivistNera, brotherCalem, captainIlyra, quartermasterRusk })
+            {
+                campaign.AddNpc(npc);
+            }
+
+            var ashWolf = Static("Ash Wolf", 11, 1);
+            var bloodCultist = Static("Blood Cultist", 16, 2);
+            var boneWarden = Static("Bone Warden", 44, 5);
+            var emberDrake = Static("Ember Drake", 75, 7);
+            var ghoulScout = Static("Ghoul Scout", 22, 2);
+            var hobgoblinShield = Static("Hobgoblin Shield", 18, 2);
+            var obsidianMyrmidon = Static("Obsidian Myrmidon", 58, 6);
+            var plagueRatSwarm = Static("Plague Rat Swarm", 24, 2);
+
+            foreach (var enemy in new[] { ashWolf, bloodCultist, boneWarden, emberDrake, ghoulScout, hobgoblinShield, obsidianMyrmidon, plagueRatSwarm })
+            {
+                campaign.AddEnemy(enemy);
+            }
+
+            var session1 = Session(campaign, "Smoke on the Trade Road", 0, mira, owen, seraphine, thalia);
+            var session2 = Session(campaign, "Knives Beneath Eastmarket", 7, mira, owen, seraphine, thalia);
+            var session3 = Session(campaign, "The Quarry Below", 14, mira, owen, seraphine, thalia);
+            var session4 = Session(campaign, "Ash Abbey Revelations", 21, mira, owen, seraphine, thalia);
+            var session5 = Session(campaign, "Blackgate Under Siege", 28, mira, owen, seraphine, thalia);
+            var session6 = Session(campaign, "The Cinder Catacombs", 35, mira, owen, seraphine, thalia);
+
+            session1.AddNpc(captainIlyra);
+            session2.AddNpc(quartermasterRusk);
+            session3.AddNpc(archivistNera);
+            session4.AddNpc(brotherCalem);
+            session5.AddNpc(captainIlyra);
+            session6.AddNpc(archivistNera);
+
+            Combat(campaign, "Roadside Pack", [session1], [mira, thalia], [], [ashWolf, ashWolf]);
+            Combat(campaign, "Burned Wagon Cultists", [session1], [mira, owen, seraphine, thalia], [captainIlyra], [bloodCultist, bloodCultist]);
+            Combat(campaign, "Market Knife Cell", [session2], [mira, owen, seraphine, thalia], [quartermasterRusk], [bloodCultist, hobgoblinShield]);
+            Combat(campaign, "The Long Hunt", [session2, session3], [mira, thalia], [], [ashWolf, ghoulScout, ghoulScout]);
+            Combat(campaign, "Quarry Gate", [session3], [mira, owen, seraphine, thalia], [archivistNera], [hobgoblinShield, hobgoblinShield, ghoulScout]);
+            Combat(campaign, "Bone Warden Awakening", [session3], [owen, seraphine, thalia], [archivistNera], [boneWarden]);
+            Combat(campaign, "Abbey Cloister Ambush", [session4], [mira, owen, seraphine, thalia], [brotherCalem], [bloodCultist, plagueRatSwarm]);
+            Combat(campaign, "Crypt Flame Trial", [session4], [mira, owen, seraphine], [], [emberDrake]);
+            Combat(campaign, "Blackgate Breach", [session5], [mira, owen, seraphine, thalia], [captainIlyra], [hobgoblinShield, obsidianMyrmidon]);
+            Combat(campaign, "Siege of Blackgate", [session5, session6], [mira, owen, thalia], [captainIlyra], [obsidianMyrmidon, boneWarden]);
+            Combat(campaign, "Rat Flooded Tunnels", [session6], [mira, seraphine, thalia], [archivistNera], [plagueRatSwarm, plagueRatSwarm]);
+            Combat(campaign, "Cinder Heart Guardian", [session6], [mira, owen, seraphine, thalia], [archivistNera], [emberDrake, boneWarden]);
+
+            return campaign;
+        }
+
+        private static PlayerCharacter Player(string name, params (string ClassesAndLevels, float HP)[] statConfigurations)
+        {
+            return new PlayerCharacter
+            {
+                Name = name,
+                StatConfigurations = statConfigurations
+                    .Select(statConfiguration => new PlayerCharacterStatConfiguration
+                    {
+                        ClassesAndLevels = statConfiguration.ClassesAndLevels,
+                        HP = statConfiguration.HP
+                    })
+                    .ToList()
+            };
+        }
+
+        private static StaticCreature Static(string name, float hp, int? challengeRating)
+        {
+            return new StaticCreature
+            {
+                Name = name,
+                Stats = new CreatureStats(hp, [], []),
+                ChallengeRating = challengeRating
+            };
+        }
+
+        private static Session Session(Campaign campaign, string name, int daysAfterStart, params PlayerCharacter[] players)
+        {
+            var session = new Session(campaign)
+            {
+                Name = name,
+                DateUtc = new DateTime(2026, 1, 6, 19, 0, 0, DateTimeKind.Utc).AddDays(daysAfterStart)
+            };
+
+            foreach (var player in players)
+            {
+                session.AddPlayerCharacter(player);
+            }
+
+            return session;
+        }
+
+        private static Combat Combat(
+            Campaign campaign,
+            string name,
+            IReadOnlyCollection<Session> sessions,
+            IReadOnlyCollection<PlayerCharacter> players,
+            IReadOnlyCollection<StaticCreature> npcs,
+            IReadOnlyCollection<StaticCreature> enemies)
+        {
+            var combat = new Combat(campaign)
+            {
+                Name = name,
+                ActionLog = new ActionLog()
+            };
+
+            foreach (var session in sessions)
+            {
+                combat.AddSession(session);
+            }
+
+            foreach (var player in players)
+            {
+                combat.AddPlayerCharacter(player);
+            }
+
+            foreach (var npc in npcs)
+            {
+                combat.AddNpc(npc);
+            }
+
+            foreach (var enemy in enemies)
+            {
+                combat.AddEnemy(enemy);
+            }
+
+            return combat;
         }
     }
 }

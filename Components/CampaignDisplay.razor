@@ -1,0 +1,137 @@
+﻿@using CampaignTracker.Model.Creatures
+@using CampaignTracker.Model.Structure
+
+<MudTabs Elevation="1" Rounded="true">
+	<MudTabPanel Text="Player Characters">
+		<MudStack Spacing="3">
+			<MudButton Variant="Variant.Filled"
+					   Color="Color.Primary"
+					   Size="Size.Small"
+					   StartIcon="@Icons.Material.Filled.Add"
+					   OnClick="AddPlayerCharacter">
+				Add Player
+			</MudButton>
+
+			@foreach (var playerCharacter in Campaign.PlayerCharacters.OrderBy(playerCharacter => playerCharacter.Name).ToList())
+			{
+				<MudPaper Elevation="1" Class="pa-3">
+					<MudStack Spacing="2">
+						<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+							<MudTextField @bind-Value="playerCharacter.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+							<MudIconButton Icon="@Icons.Material.Filled.Delete"
+										   Color="Color.Error"
+										   Size="Size.Small"
+										   OnClick="@(() => Campaign.RemovePlayerCharacter(playerCharacter))" />
+						</MudStack>
+
+						<MudText Typo="Typo.subtitle2">Stat Configurations</MudText>
+						@foreach (var statConfiguration in playerCharacter.StatConfigurations.ToList())
+						{
+							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+								<MudTextField @bind-Value="statConfiguration.ClassesAndLevels" Label="Classes / Levels" Variant="Variant.Outlined" Margin="Margin.Dense" />
+								<MudNumericField T="float" @bind-Value="statConfiguration.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
+								<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
+											   Color="Color.Default"
+											   Size="Size.Small"
+											   OnClick="@(() => playerCharacter.StatConfigurations.Remove(statConfiguration))" />
+							</MudStack>
+						}
+
+						<MudButton Variant="Variant.Text"
+								   Size="Size.Small"
+								   StartIcon="@Icons.Material.Filled.Add"
+								   OnClick="@(() => AddStatConfiguration(playerCharacter))">
+							Add Stat Line
+						</MudButton>
+					</MudStack>
+				</MudPaper>
+			}
+		</MudStack>
+	</MudTabPanel>
+
+	<MudTabPanel Text="NPCs">
+		@StaticCreaturePanel(Campaign.Npcs, AddNpc, Campaign.RemoveNpc, "Add NPC")
+	</MudTabPanel>
+
+	<MudTabPanel Text="Enemies">
+		@StaticCreaturePanel(Campaign.Enemies, AddEnemy, Campaign.RemoveEnemy, "Add Enemy")
+	</MudTabPanel>
+</MudTabs>
+
+@code {
+	[Parameter]
+	public Campaign Campaign { get; set; } = null!;
+
+	private void AddPlayerCharacter()
+	{
+		Campaign.AddPlayerCharacter(new PlayerCharacter
+		{
+			Name = "New Player Character",
+			StatConfigurations =
+			[
+				new PlayerCharacterStatConfiguration
+				{
+					ClassesAndLevels = "Level 1",
+					HP = 10
+				}
+			]
+		});
+	}
+
+	private void AddStatConfiguration(PlayerCharacter playerCharacter)
+	{
+		playerCharacter.StatConfigurations.Add(new PlayerCharacterStatConfiguration
+		{
+			ClassesAndLevels = "Level 1",
+			HP = 10
+		});
+	}
+
+	private void AddNpc()
+	{
+		Campaign.AddNpc(new StaticCreature
+		{
+			Name = "New NPC",
+			Stats = new CreatureStats(10, [], [])
+		});
+	}
+
+	private void AddEnemy()
+	{
+		Campaign.AddEnemy(new StaticCreature
+		{
+			Name = "New Enemy",
+			Stats = new CreatureStats(10, [], []),
+			ChallengeRating = 1
+		});
+	}
+
+	private RenderFragment StaticCreaturePanel(
+		IReadOnlyCollection<StaticCreature> creatures,
+		Action addCreature,
+		Action<StaticCreature> removeCreature,
+		string addButtonText) => @<MudStack Spacing="3">
+		<MudButton Variant="Variant.Filled"
+				   Color="Color.Primary"
+				   Size="Size.Small"
+				   StartIcon="@Icons.Material.Filled.Add"
+				   OnClick="@addCreature">
+			@addButtonText
+		</MudButton>
+
+		@foreach (var creature in creatures.OrderBy(creature => creature.Name).ToList())
+		{
+			<MudPaper Elevation="1" Class="pa-3">
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+					<MudTextField @bind-Value="creature.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					<MudNumericField T="float" @bind-Value="creature.Stats.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					<MudNumericField T="int?" @bind-Value="creature.ChallengeRating" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					<MudIconButton Icon="@Icons.Material.Filled.Delete"
+								   Color="Color.Error"
+								   Size="Size.Small"
+								   OnClick="@(() => removeCreature(creature))" />
+				</MudStack>
+			</MudPaper>
+		}
+	</MudStack>;
+}

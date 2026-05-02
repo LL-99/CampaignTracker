@@ -1,18 +1,32 @@
-﻿using CampaignTracker.Model.Structure;
+﻿using CampaignTracker.Model.Creatures;
+using CampaignTracker.Model.Structure;
 using Newtonsoft.Json;
 
 namespace CampaignTracker.Model.Combats
 {
     public class Combat : DataElement
     {
+        public string Name { get; set; } = string.Empty;
         public ActionLog ActionLog { get; set; }
-        public List<Guid> SessionGUIDs { get; set; } = [];
+        public List<Guid> SessionGUIDs { get; private set; } = [];
+        public List<Guid> PlayerCharacterGUIDs { get; private set; } = [];
+        public List<Guid> NpcGUIDs { get; private set; } = [];
+        public List<Guid> EnemyGUIDs { get; private set; } = [];
 
         [JsonIgnore]
         public Campaign Campaign { get; set; }
 
         [JsonIgnore]
         public List<Session> Sessions { get; set; } = [];
+
+        [JsonIgnore]
+        public List<PlayerCharacter> PlayerCharacters { get; private set; } = [];
+
+        [JsonIgnore]
+        public List<StaticCreature> Npcs { get; private set; } = [];
+
+        [JsonIgnore]
+        public List<StaticCreature> Enemies { get; private set; } = [];
 
         public Combat()
         {
@@ -24,7 +38,11 @@ namespace CampaignTracker.Model.Combats
         {
             ActionLog = null!;
             Campaign = campaign;
-            Campaign.Combats.Add(this);
+
+            if (!campaign.Combats.Any(combat => combat.GUID == GUID))
+            {
+                campaign.Combats.Add(this);
+            }
         }
 
         public void PostInit(Campaign campaign)
@@ -35,11 +53,121 @@ namespace CampaignTracker.Model.Combats
                 .ToList();
 
             SessionGUIDs = Sessions.Select(session => session.GUID).Distinct().ToList();
+            PlayerCharacters = campaign.PlayerCharacters.Where(playerCharacter => PlayerCharacterGUIDs.Contains(playerCharacter.GUID)).ToList();
+            PlayerCharacterGUIDs = PlayerCharacters.Select(playerCharacter => playerCharacter.GUID).Distinct().ToList();
+            Npcs = campaign.Npcs.Where(npc => NpcGUIDs.Contains(npc.GUID)).ToList();
+            NpcGUIDs = Npcs.Select(npc => npc.GUID).Distinct().ToList();
+            Enemies = campaign.Enemies.Where(enemy => EnemyGUIDs.Contains(enemy.GUID)).ToList();
+            EnemyGUIDs = Enemies.Select(enemy => enemy.GUID).Distinct().ToList();
         }
 
         public void AddSession(Session session)
         {
-            if (!Sessions.Contains(session))
+            AddSessionDirect(session);
+            session.AddCombatFromCombat(this);
+        }
+
+        public void RemoveSession(Session session)
+        {
+            if (!RemoveSessionDirect(session))
+            {
+                return;
+            }
+
+            session.RemoveCombatFromCombat(this);
+        }
+
+        public void AddPlayerCharacter(PlayerCharacter playerCharacter)
+        {
+            if (!AddCreature(PlayerCharacters, PlayerCharacterGUIDs, playerCharacter))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions)
+            {
+                session.AddPlayerCharacterFromCombat(playerCharacter);
+            }
+        }
+
+        public void RemovePlayerCharacter(PlayerCharacter playerCharacter)
+        {
+            if (!RemoveCreature(PlayerCharacters, PlayerCharacterGUIDs, playerCharacter))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions.ToList())
+            {
+                session.RemovePlayerCharacterFromCombat(this, playerCharacter);
+            }
+        }
+
+        public void AddNpc(StaticCreature npc)
+        {
+            if (!AddCreature(Npcs, NpcGUIDs, npc))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions)
+            {
+                session.AddNpcFromCombat(npc);
+            }
+        }
+
+        public void RemoveNpc(StaticCreature npc)
+        {
+            if (!RemoveCreature(Npcs, NpcGUIDs, npc))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions.ToList())
+            {
+                session.RemoveNpcFromCombat(this, npc);
+            }
+        }
+
+        public void AddEnemy(StaticCreature enemy)
+        {
+            if (!AddCreature(Enemies, EnemyGUIDs, enemy))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions)
+            {
+                session.AddEnemyFromCombat(enemy);
+            }
+        }
+
+        public void RemoveEnemy(StaticCreature enemy)
+        {
+            if (!RemoveCreature(Enemies, EnemyGUIDs, enemy))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions.ToList())
+            {
+                session.RemoveEnemyFromCombat(this, enemy);
+            }
+        }
+
+        internal void AddSessionFromSession(Session session)
+        {
+            AddSessionDirect(session);
+        }
+
+        internal void RemoveSessionFromSession(Session session)
+        {
+            RemoveSessionDirect(session);
+        }
+
+        private void AddSessionDirect(Session session)
+        {
+            if (!Sessions.Any(existing => existing.GUID == session.GUID))
             {
                 Sessions.Add(session);
             }
@@ -48,8 +176,43 @@ namespace CampaignTracker.Model.Combats
             {
                 SessionGUIDs.Add(session.GUID);
             }
+        }
 
-            session.AddCombat(this);
+        private bool RemoveSessionDirect(Session session)
+        {
+            var removed = Sessions.RemoveAll(existing => existing.GUID == session.GUID) > 0;
+            removed = SessionGUIDs.Remove(session.GUID) || removed;
+
+            return removed;
+        }
+
+        private static bool AddCreature<TCreature>(List<TCreature> creatures, List<Guid> creatureGUIDs, TCreature creature)
+            where TCreature : Creature
+        {
+            var added = false;
+
+            if (!creatures.Any(existing => existing.GUID == creature.GUID))
+            {
+                creatures.Add(creature);
+                added = true;
+            }
+
+            if (!creatureGUIDs.Contains(creature.GUID))
+            {
+                creatureGUIDs.Add(creature.GUID);
+                added = true;
+            }
+
+            return added;
+        }
+
+        private static bool RemoveCreature<TCreature>(List<TCreature> creatures, List<Guid> creatureGUIDs, TCreature creature)
+            where TCreature : Creature
+        {
+            var removed = creatures.RemoveAll(existing => existing.GUID == creature.GUID) > 0;
+            removed = creatureGUIDs.Remove(creature.GUID) || removed;
+
+            return removed;
         }
     }
 }

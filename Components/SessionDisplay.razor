@@ -1,25 +1,96 @@
-﻿@using CampaignTracker.Model.Structure
+﻿@using CampaignTracker.Model.Creatures
+@using CampaignTracker.Model.Structure
 
+<MudStack Spacing="3">
+	<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+		<MudText Typo="Typo.h5">Session #@SessionIndex</MudText>
+		<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+			@Session.DateUtc.ToLocalTime().ToString("d")
+		</MudChip>
+	</MudStack>
 
-<MudText Typo="Typo.h4">Session Config</MudText>
+	<MudGrid Spacing="2">
+		<MudItem xs="12" md="8">
+			<MudTextField @bind-Value="Session.Name" Label="Session Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+		</MudItem>
+		<MudItem xs="12" md="4">
+			<MudDatePicker Label="Session Date"
+						   Date="LocalSessionDate"
+						   DateChanged="SetLocalSessionDate"
+						   Variant="Variant.Outlined"
+						   Margin="Margin.Dense" />
+		</MudItem>
+	</MudGrid>
 
-<MudTextField @bind-Value=@Session.Name Label="Session Name" Variant="Variant.Outlined" />
+	<MudGrid Spacing="3">
+		<MudItem xs="12" md="4">
+			<CreatureMultiSelect TCreature="PlayerCharacter"
+								 Title="Player Characters"
+								 FilterLabel="Filter players"
+								 Items="Campaign.PlayerCharacters"
+								 SelectedItems="Session.PlayerCharacters"
+								 ItemAdded="Session.AddPlayerCharacter"
+								 ItemRemoved="Session.RemovePlayerCharacter" />
+		</MudItem>
 
-<MudGrid>
-	<MudItem xs="4">
-		<MudText Typo="Typo.h5">Player Characters</MudText>
-	</MudItem>
-		
-	<MudItem xs="4">
-		<MudText Typo="Typo.h5">NPCs</MudText>
-	</MudItem>
+		<MudItem xs="12" md="4">
+			<CreatureMultiSelect TCreature="StaticCreature"
+								 Title="NPCs"
+								 FilterLabel="Filter NPCs"
+								 Items="Campaign.Npcs"
+								 SelectedItems="Session.Npcs"
+								 ItemAdded="Session.AddNpc"
+								 ItemRemoved="Session.RemoveNpc" />
+		</MudItem>
 
-	<MudItem xs="4">
-		<MudText Typo="Typo.h5">Enemies (pre-filter)</MudText>
-	</MudItem>
-</MudGrid>
+		<MudItem xs="12" md="4">
+			<CreatureMultiSelect TCreature="StaticCreature"
+								 Title="Enemies"
+								 FilterLabel="Filter enemies"
+								 Items="Campaign.Enemies"
+								 SelectedItems="Session.Enemies"
+								 ItemText="EnemyText"
+								 ItemAdded="Session.AddEnemy"
+								 ItemRemoved="Session.RemoveEnemy" />
+		</MudItem>
+	</MudGrid>
+</MudStack>
 
 @code {
 	[Parameter]
-	public Session Session { get; set; }
+	public Session Session { get; set; } = null!;
+
+	private Campaign Campaign => Session.Campaign;
+
+	private int SessionIndex
+	{
+		get
+		{
+			var sortedSessions = Campaign.Sessions
+				.OrderBy(session => session.DateUtc)
+				.ToList();
+
+			return sortedSessions.FindIndex(session => session.GUID == Session.GUID) + 1;
+		}
+	}
+
+	private DateTime? LocalSessionDate => Session.DateUtc.ToLocalTime().Date;
+
+	private Task SetLocalSessionDate(DateTime? value)
+	{
+		if (value is not DateTime localDate)
+		{
+			return Task.CompletedTask;
+		}
+
+		Session.DateUtc = DateTime.SpecifyKind(localDate.Date, DateTimeKind.Local).ToUniversalTime();
+		return Task.CompletedTask;
+	}
+
+	private static string EnemyText(StaticCreature enemy)
+	{
+		return enemy.ChallengeRating is null
+			? enemy.Name
+			: $"{enemy.Name} (CR {enemy.ChallengeRating})";
+	}
 }

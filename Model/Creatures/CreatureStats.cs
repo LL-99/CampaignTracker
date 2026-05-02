@@ -18,5 +18,21 @@
         Thunder
     }
 
-    public record CreatureStats(float HP, DamageType[] Resistances, DamageType[] Vulnerabilities);
+    public class CreatureStats
+    {
+        public CreatureStats()
+        {
+        }
+
+        public CreatureStats(float hp, DamageType[] resistances, DamageType[] vulnerabilities)
+        {
+            HP = hp;
+            Resistances = resistances;
+            Vulnerabilities = vulnerabilities;
+        }
+
+        public float HP { get; set; }
+        public DamageType[] Resistances { get; set; } = [];
+        public DamageType[] Vulnerabilities { get; set; } = [];
+    }
 }

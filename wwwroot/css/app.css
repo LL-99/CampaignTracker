@@ -101,3 +101,8 @@ code {
     line-height: 1.5;
     white-space: pre;
 }
+
+.creature-select-list {
+    max-height: 22rem;
+    overflow-y: auto;
+}

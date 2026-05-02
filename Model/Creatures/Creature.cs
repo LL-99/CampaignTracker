@@ -3,6 +3,6 @@
     public abstract class Creature : DataElement
     {
         public abstract CreatureType Type { get; }
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }

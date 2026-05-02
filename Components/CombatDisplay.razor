@@ -1,0 +1,78 @@
+﻿@using CampaignTracker.Model.Combats
+@using CampaignTracker.Model.Creatures
+
+<MudStack Spacing="3">
+	<MudTextField @bind-Value="Combat.Name" Label="Combat Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+	<MudTabs Elevation="1" Rounded="true">
+		<MudTabPanel Text="Activity Log">
+			<MudText Typo="Typo.body2" Color="Color.Secondary">Activity log tracking will be added here.</MudText>
+		</MudTabPanel>
+
+		<MudTabPanel Text="Creatures">
+			<MudGrid Spacing="3">
+				<MudItem xs="12" md="4">
+					<CreatureMultiSelect TCreature="PlayerCharacter"
+										 Title="Player Characters"
+										 FilterLabel="Filter players"
+										 Items="AvailablePlayerCharacters"
+										 SelectedItems="Combat.PlayerCharacters"
+										 ItemAdded="Combat.AddPlayerCharacter"
+										 ItemRemoved="Combat.RemovePlayerCharacter" />
+				</MudItem>
+				<MudItem xs="12" md="4">
+					<CreatureMultiSelect TCreature="StaticCreature"
+										 Title="NPCs"
+										 FilterLabel="Filter NPCs"
+										 Items="AvailableNpcs"
+										 SelectedItems="Combat.Npcs"
+										 ItemAdded="Combat.AddNpc"
+										 ItemRemoved="Combat.RemoveNpc" />
+				</MudItem>
+				<MudItem xs="12" md="4">
+					<CreatureMultiSelect TCreature="StaticCreature"
+										 Title="Enemies"
+										 FilterLabel="Filter enemies"
+										 Items="AvailableEnemies"
+										 SelectedItems="Combat.Enemies"
+										 ItemText="EnemyText"
+										 ItemAdded="Combat.AddEnemy"
+										 ItemRemoved="Combat.RemoveEnemy" />
+				</MudItem>
+			</MudGrid>
+		</MudTabPanel>
+	</MudTabs>
+</MudStack>
+
+@code {
+	[Parameter]
+	public Combat Combat { get; set; } = null!;
+
+	private IReadOnlyCollection<PlayerCharacter> AvailablePlayerCharacters => Combat.Sessions
+		.SelectMany(session => session.PlayerCharacters)
+		.GroupBy(playerCharacter => playerCharacter.GUID)
+		.Select(group => group.First())
+		.OrderBy(playerCharacter => playerCharacter.Name)
+		.ToList();
+
+	private IReadOnlyCollection<StaticCreature> AvailableNpcs => Combat.Sessions
+		.SelectMany(session => session.Npcs)
+		.GroupBy(npc => npc.GUID)
+		.Select(group => group.First())
+		.OrderBy(npc => npc.Name)
+		.ToList();
+
+	private IReadOnlyCollection<StaticCreature> AvailableEnemies => Combat.Sessions
+		.SelectMany(session => session.Enemies)
+		.GroupBy(enemy => enemy.GUID)
+		.Select(group => group.First())
+		.OrderBy(enemy => enemy.Name)
+		.ToList();
+
+	private static string EnemyText(StaticCreature enemy)
+	{
+		return enemy.ChallengeRating is null
+			? enemy.Name
+			: $"{enemy.Name} (CR {enemy.ChallengeRating})";
+	}
+}

@@ -1,0 +1,83 @@
+﻿@typeparam TCreature where TCreature : Creature
+@using CampaignTracker.Model.Creatures
+
+<MudStack Spacing="2">
+	<MudText Typo="Typo.subtitle1">@Title</MudText>
+	<MudTextField T="string"
+				  @bind-Value="_filter"
+				  Label="@FilterLabel"
+				  Variant="Variant.Outlined"
+				  Margin="Margin.Dense"
+				  Immediate="true"
+				  Adornment="Adornment.Start"
+				  AdornmentIcon="@Icons.Material.Filled.Search" />
+
+	<MudStack Spacing="0" Class="creature-select-list">
+		@if (!FilteredItems.Any())
+		{
+			<MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">No matching creatures</MudText>
+		}
+		else
+		{
+			@foreach (var creature in FilteredItems)
+			{
+				<MudCheckBox T="bool"
+							 Dense="true"
+							 Label="@GetItemText(creature)"
+							 Value="@IsSelected(creature)"
+							 ValueChanged="@((bool selected) => SetSelected(creature, selected))" />
+			}
+		}
+	</MudStack>
+</MudStack>
+
+@code {
+	private string _filter = string.Empty;
+
+	[Parameter]
+	public string Title { get; set; } = string.Empty;
+
+	[Parameter]
+	public string FilterLabel { get; set; } = "Filter";
+
+	[Parameter]
+	public IReadOnlyCollection<TCreature> Items { get; set; } = [];
+
+	[Parameter]
+	public IReadOnlyCollection<TCreature> SelectedItems { get; set; } = [];
+
+	[Parameter]
+	public Func<TCreature, string>? ItemText { get; set; }
+
+	[Parameter]
+	public EventCallback<TCreature> ItemAdded { get; set; }
+
+	[Parameter]
+	public EventCallback<TCreature> ItemRemoved { get; set; }
+
+	private IEnumerable<TCreature> FilteredItems => Items
+		.Where(creature => string.IsNullOrWhiteSpace(_filter) || GetItemText(creature).Contains(_filter, StringComparison.OrdinalIgnoreCase))
+		.OrderBy(GetItemText);
+
+	private bool IsSelected(TCreature creature)
+	{
+		return SelectedItems.Any(selected => selected.GUID == creature.GUID);
+	}
+
+	private string GetItemText(TCreature creature)
+	{
+		return ItemText?.Invoke(creature) ?? creature.Name;
+	}
+
+	private async Task SetSelected(TCreature creature, bool selected)
+	{
+		if (selected)
+		{
+			await ItemAdded.InvokeAsync(creature);
+		}
+		else
+		{
+			await ItemRemoved.InvokeAsync(creature);
+		}
+	}
+}

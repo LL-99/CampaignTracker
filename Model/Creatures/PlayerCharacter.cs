@@ -7,6 +7,12 @@
     {
         public override CreatureType Type => CreatureType.Player;
 
-        public Dictionary<string, CreatureStats> Stats { get; set; } = new();
+        public List<PlayerCharacterStatConfiguration> StatConfigurations { get; set; } = [];
+    }
+
+    public class PlayerCharacterStatConfiguration
+    {
+        public string ClassesAndLevels { get; set; } = string.Empty;
+        public float HP { get; set; }
     }
 }
