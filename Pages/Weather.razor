@@ -3,41 +3,40 @@
 
 <PageTitle>Weather</PageTitle>
 
-<h1>Weather</h1>
+<MudStack Spacing="4">
+    <MudStack Spacing="1">
+        <MudText Typo="Typo.h4" HtmlTag="h1">Weather</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            Sample forecast data rendered with MudBlazor table components.
+        </MudText>
+    </MudStack>
 
-<p>This component demonstrates fetching data from the server.</p>
-
-@if (forecasts == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th aria-label="Temperature in Celsius">Temp. (C)</th>
-                <th aria-label="Temperature in Fahrenheit">Temp. (F)</th>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var forecast in forecasts)
-            {
-                <tr>
-                    <td>@forecast.Date.ToShortDateString()</td>
-                    <td>@forecast.TemperatureC</td>
-                    <td>@forecast.TemperatureF</td>
-                    <td>@forecast.Summary</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+    <MudTable Items="@forecasts"
+              Hover="true"
+              Dense="true"
+              Elevation="1"
+              Loading="@(forecasts is null)"
+              Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Date</MudTh>
+            <MudTh>Temp. (C)</MudTh>
+            <MudTh>Temp. (F)</MudTh>
+            <MudTh>Summary</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Date">@context.Date.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Temp. (C)">@context.TemperatureC</MudTd>
+            <MudTd DataLabel="Temp. (F)">@context.TemperatureF</MudTd>
+            <MudTd DataLabel="Summary">@context.Summary</MudTd>
+        </RowTemplate>
+        <LoadingContent>
+            <MudText Class="pa-4" Color="Color.Secondary">Loading forecast...</MudText>
+        </LoadingContent>
+    </MudTable>
+</MudStack>
 
 @code {
-    private WeatherForecast[]? forecasts;
+    private IEnumerable<WeatherForecast>? forecasts;
 
     protected override async Task OnInitializedAsync()
     {
