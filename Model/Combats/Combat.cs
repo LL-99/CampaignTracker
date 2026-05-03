@@ -12,6 +12,7 @@ namespace CampaignTracker.Model.Combats
         public List<Guid> PlayerCharacterGUIDs { get; private set; } = [];
         public List<Guid> NpcGUIDs { get; private set; } = [];
         public List<Guid> EnemyGUIDs { get; private set; } = [];
+        public List<CombatPlayerCharacterStatConfiguration> PlayerCharacterStatConfigurations { get; private set; } = [];
 
         [JsonIgnore]
         public Campaign Campaign { get; set; }
@@ -55,6 +56,21 @@ namespace CampaignTracker.Model.Combats
             SessionGUIDs = Sessions.Select(session => session.GUID).Distinct().ToList();
             PlayerCharacters = campaign.PlayerCharacters.Where(playerCharacter => PlayerCharacterGUIDs.Contains(playerCharacter.GUID)).ToList();
             PlayerCharacterGUIDs = PlayerCharacters.Select(playerCharacter => playerCharacter.GUID).Distinct().ToList();
+            PlayerCharacterStatConfigurations = PlayerCharacterStatConfigurations
+                .Where(selection => PlayerCharacters.Any(playerCharacter => playerCharacter.GUID == selection.PlayerCharacterGUID)
+                    && PlayerCharacters
+                        .First(playerCharacter => playerCharacter.GUID == selection.PlayerCharacterGUID)
+                        .StatConfigurations
+                        .Any(statConfiguration => statConfiguration.GUID == selection.StatConfigurationGUID))
+                .GroupBy(selection => selection.PlayerCharacterGUID)
+                .Select(group => group.First())
+                .ToList();
+
+            foreach (var playerCharacter in PlayerCharacters)
+            {
+                EnsurePlayerCharacterStatConfiguration(playerCharacter);
+            }
+
             Npcs = campaign.Npcs.Where(npc => NpcGUIDs.Contains(npc.GUID)).ToList();
             NpcGUIDs = Npcs.Select(npc => npc.GUID).Distinct().ToList();
             Enemies = campaign.Enemies.Where(enemy => EnemyGUIDs.Contains(enemy.GUID)).ToList();
@@ -88,6 +104,8 @@ namespace CampaignTracker.Model.Combats
             {
                 session.AddPlayerCharacterFromCombat(playerCharacter);
             }
+
+            EnsurePlayerCharacterStatConfiguration(playerCharacter);
         }
 
         public void RemovePlayerCharacter(PlayerCharacter playerCharacter)
@@ -100,6 +118,45 @@ namespace CampaignTracker.Model.Combats
             foreach (var session in Sessions.ToList())
             {
                 session.RemovePlayerCharacterFromCombat(this, playerCharacter);
+            }
+
+            PlayerCharacterStatConfigurations.RemoveAll(selection => selection.PlayerCharacterGUID == playerCharacter.GUID);
+        }
+
+        public PlayerCharacterStatConfiguration? GetSelectedStatConfiguration(PlayerCharacter playerCharacter)
+        {
+            EnsurePlayerCharacterStatConfiguration(playerCharacter);
+
+            var selectedStatConfigurationGuid = PlayerCharacterStatConfigurations
+                .FirstOrDefault(selection => selection.PlayerCharacterGUID == playerCharacter.GUID)
+                ?.StatConfigurationGUID;
+
+            return playerCharacter.StatConfigurations
+                .FirstOrDefault(statConfiguration => statConfiguration.GUID == selectedStatConfigurationGuid);
+        }
+
+        public void SetSelectedStatConfiguration(PlayerCharacter playerCharacter, PlayerCharacterStatConfiguration statConfiguration)
+        {
+            if (!PlayerCharacters.Any(existing => existing.GUID == playerCharacter.GUID)
+                || !playerCharacter.StatConfigurations.Any(existing => existing.GUID == statConfiguration.GUID))
+            {
+                return;
+            }
+
+            var existingSelection = PlayerCharacterStatConfigurations
+                .FirstOrDefault(selection => selection.PlayerCharacterGUID == playerCharacter.GUID);
+
+            if (existingSelection is null)
+            {
+                PlayerCharacterStatConfigurations.Add(new CombatPlayerCharacterStatConfiguration
+                {
+                    PlayerCharacterGUID = playerCharacter.GUID,
+                    StatConfigurationGUID = statConfiguration.GUID
+                });
+            }
+            else
+            {
+                existingSelection.StatConfigurationGUID = statConfiguration.GUID;
             }
         }
 
@@ -165,6 +222,19 @@ namespace CampaignTracker.Model.Combats
             RemoveSessionDirect(session);
         }
 
+        internal void ClearReferences()
+        {
+            Sessions.Clear();
+            SessionGUIDs.Clear();
+            PlayerCharacters.Clear();
+            PlayerCharacterGUIDs.Clear();
+            PlayerCharacterStatConfigurations.Clear();
+            Npcs.Clear();
+            NpcGUIDs.Clear();
+            Enemies.Clear();
+            EnemyGUIDs.Clear();
+        }
+
         private void AddSessionDirect(Session session)
         {
             if (!Sessions.Any(existing => existing.GUID == session.GUID))
@@ -184,6 +254,30 @@ namespace CampaignTracker.Model.Combats
             removed = SessionGUIDs.Remove(session.GUID) || removed;
 
             return removed;
+        }
+
+        private void EnsurePlayerCharacterStatConfiguration(PlayerCharacter playerCharacter)
+        {
+            if (!PlayerCharacters.Any(existing => existing.GUID == playerCharacter.GUID)
+                || PlayerCharacterStatConfigurations.Any(selection => selection.PlayerCharacterGUID == playerCharacter.GUID))
+            {
+                return;
+            }
+
+            var defaultStatConfiguration = playerCharacter.StatConfigurations
+                .OrderByDescending(statConfiguration => statConfiguration.HP)
+                .FirstOrDefault();
+
+            if (defaultStatConfiguration is null)
+            {
+                return;
+            }
+
+            PlayerCharacterStatConfigurations.Add(new CombatPlayerCharacterStatConfiguration
+            {
+                PlayerCharacterGUID = playerCharacter.GUID,
+                StatConfigurationGUID = defaultStatConfiguration.GUID
+            });
         }
 
         private static bool AddCreature<TCreature>(List<TCreature> creatures, List<Guid> creatureGUIDs, TCreature creature)

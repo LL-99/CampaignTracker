@@ -10,6 +10,7 @@ namespace CampaignTracker.Model.Structure
         public List<Guid> NpcGUIDs { get; private set; } = [];
         public List<Guid> EnemyGUIDs { get; private set; } = [];
         public List<Guid> CombatGUIDs { get; private set; } = [];
+        public List<SessionCombatReference> CombatReferences { get; private set; } = [];
         public string Name { get; set; } = string.Empty;
         public DateTime DateUtc { get; set; } = DateTime.UtcNow;
 
@@ -27,6 +28,12 @@ namespace CampaignTracker.Model.Structure
 
         [JsonIgnore]
         public List<Combat> Combats { get; private set; } = [];
+
+        [JsonIgnore]
+        public IReadOnlyCollection<Combat> OrderedCombats => Combats
+            .OrderBy(GetCombatIndex)
+            .ThenBy(combat => combat.Name)
+            .ToList();
 
         public Session()
         {
@@ -62,6 +69,8 @@ namespace CampaignTracker.Model.Structure
                 AddCombat(combat);
             }
 
+            ReindexCombats();
+
             foreach (var playerCharacter in campaign.PlayerCharacters.Where(playerCharacter => PlayerCharacterGUIDs.Contains(playerCharacter.GUID)))
             {
                 AddPlayerCharacter(playerCharacter);
@@ -80,7 +89,14 @@ namespace CampaignTracker.Model.Structure
 
         public void AddCombat(Combat combat)
         {
+            AddCombat(combat, null);
+        }
+
+        public void AddCombat(Combat combat, int? combatIndex)
+        {
             AddCombatDirect(combat);
+            SetCombatIndexDirect(combat, combatIndex ?? GetCombatIndex(combat));
+            ReindexCombats();
             combat.AddSessionFromSession(this);
             AddCombatCreatures(combat);
         }
@@ -94,6 +110,34 @@ namespace CampaignTracker.Model.Structure
 
             combat.RemoveSessionFromSession(this);
             RemoveCombatCreaturesIfUnused(combat);
+            ReindexCombats();
+        }
+
+        public int GetCombatIndex(Combat combat)
+        {
+            var combatReference = CombatReferences.FirstOrDefault(reference => reference.CombatGUID == combat.GUID);
+
+            if (combatReference is not null)
+            {
+                return combatReference.CombatIndex;
+            }
+
+            var existingIndex = CombatGUIDs.FindIndex(combatGuid => combatGuid == combat.GUID);
+
+            return existingIndex < 0
+                ? GetNextCombatIndex()
+                : existingIndex + 1;
+        }
+
+        public void SetCombatIndex(Combat combat, int combatIndex)
+        {
+            if (!Combats.Any(existing => existing.GUID == combat.GUID))
+            {
+                return;
+            }
+
+            SetCombatIndexDirect(combat, combatIndex);
+            ReindexCombats();
         }
 
         public void AddPlayerCharacter(PlayerCharacter playerCharacter)
@@ -153,6 +197,8 @@ namespace CampaignTracker.Model.Structure
         internal void AddCombatFromCombat(Combat combat)
         {
             AddCombatDirect(combat);
+            SetCombatIndexDirect(combat, GetNextCombatIndex());
+            ReindexCombats();
             AddCombatCreatures(combat);
         }
 
@@ -161,7 +207,22 @@ namespace CampaignTracker.Model.Structure
             if (RemoveCombatDirect(combat))
             {
                 RemoveCombatCreaturesIfUnused(combat);
+                ReindexCombats();
             }
+        }
+
+        internal void ClearReferences()
+        {
+            Campaign = null!;
+            PlayerCharacters.Clear();
+            PlayerCharacterGUIDs.Clear();
+            Npcs.Clear();
+            NpcGUIDs.Clear();
+            Enemies.Clear();
+            EnemyGUIDs.Clear();
+            Combats.Clear();
+            CombatGUIDs.Clear();
+            CombatReferences.Clear();
         }
 
         internal void AddPlayerCharacterFromCombat(PlayerCharacter playerCharacter)
@@ -250,14 +311,84 @@ namespace CampaignTracker.Model.Structure
             {
                 CombatGUIDs.Add(combat.GUID);
             }
+
+            if (!CombatReferences.Any(reference => reference.CombatGUID == combat.GUID))
+            {
+                CombatReferences.Add(new SessionCombatReference
+                {
+                    CombatGUID = combat.GUID,
+                    CombatIndex = CombatReferences.Count == 0
+                        ? CombatGUIDs.Count
+                        : CombatReferences.Max(reference => reference.CombatIndex) + 1
+                });
+            }
         }
 
         private bool RemoveCombatDirect(Combat combat)
         {
             var removed = Combats.RemoveAll(existing => existing.GUID == combat.GUID) > 0;
             removed = CombatGUIDs.Remove(combat.GUID) || removed;
+            removed = CombatReferences.RemoveAll(reference => reference.CombatGUID == combat.GUID) > 0 || removed;
 
             return removed;
+        }
+
+        private int GetNextCombatIndex()
+        {
+            return CombatReferences.Count == 0
+                ? 1
+                : CombatReferences.Max(reference => reference.CombatIndex) + 1;
+        }
+
+        private void SetCombatIndexDirect(Combat combat, int combatIndex)
+        {
+            var targetIndex = Math.Clamp(combatIndex, 1, Math.Max(Combats.Count, 1));
+            var orderedCombats = OrderedCombats
+                .Where(existing => existing.GUID != combat.GUID)
+                .ToList();
+
+            orderedCombats.Insert(Math.Min(targetIndex - 1, orderedCombats.Count), combat);
+
+            for (var index = 0; index < orderedCombats.Count; index++)
+            {
+                EnsureCombatReference(orderedCombats[index]).CombatIndex = index + 1;
+            }
+
+            CombatGUIDs.Clear();
+            CombatGUIDs.AddRange(orderedCombats.Select(orderedCombat => orderedCombat.GUID));
+        }
+
+        private void ReindexCombats()
+        {
+            var orderedCombats = OrderedCombats.ToList();
+            CombatReferences.RemoveAll(reference => !Combats.Any(combat => combat.GUID == reference.CombatGUID));
+
+            for (var index = 0; index < orderedCombats.Count; index++)
+            {
+                EnsureCombatReference(orderedCombats[index]).CombatIndex = index + 1;
+            }
+
+            CombatGUIDs.Clear();
+            CombatGUIDs.AddRange(orderedCombats.Select(orderedCombat => orderedCombat.GUID));
+        }
+
+        private SessionCombatReference EnsureCombatReference(Combat combat)
+        {
+            var combatReference = CombatReferences.FirstOrDefault(reference => reference.CombatGUID == combat.GUID);
+
+            if (combatReference is not null)
+            {
+                return combatReference;
+            }
+
+            combatReference = new SessionCombatReference
+            {
+                CombatGUID = combat.GUID,
+                CombatIndex = GetNextCombatIndex()
+            };
+
+            CombatReferences.Add(combatReference);
+            return combatReference;
         }
 
         private static void AddCreature<TCreature>(List<TCreature> creatures, List<Guid> creatureGUIDs, TCreature creature)

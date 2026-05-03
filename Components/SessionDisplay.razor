@@ -1,64 +1,91 @@
 ﻿@using CampaignTracker.Model.Creatures
 @using CampaignTracker.Model.Structure
 
+@inject IDialogService DialogService
+
 <MudStack Spacing="3" Class="detail-display">
-	<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
-		<MudText Typo="Typo.h5">Session #@SessionIndex</MudText>
-		<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
-			@Session.DateUtc.ToLocalTime().ToString("d")
-		</MudChip>
-	</MudStack>
+	<MudTabs Elevation="1" Rounded="true" Class="nested-tabs" TabPanelsClass="nested-tab-panels" Style="height: 100%; max-height: 100%;">
+		<MudTabPanel Text="Session" PanelClass="nested-tab-panel">
+			<MudStack Spacing="3" Class="home-panel-scroll">
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+					<MudText Typo="Typo.h5">Session #@SessionIndex</MudText>
+					<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+						@Session.DateUtc.ToLocalTime().ToString("d")
+					</MudChip>
+				</MudStack>
 
-	<MudGrid Spacing="2">
-		<MudItem xs="12" md="8">
-			<MudTextField @bind-Value="Session.Name" Label="Session Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-		</MudItem>
-		<MudItem xs="12" md="4">
-			<MudDatePicker Label="Session Date"
-						   Date="LocalSessionDate"
-						   DateChanged="SetLocalSessionDate"
-						   Variant="Variant.Outlined"
-						   Margin="Margin.Dense" />
-		</MudItem>
-	</MudGrid>
+				<MudGrid Spacing="2">
+					<MudItem xs="12" md="8">
+						<MudTextField @bind-Value="Session.Name" Label="Session Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					</MudItem>
+					<MudItem xs="12" md="4">
+						<MudDatePicker Label="Session Date"
+									   Date="LocalSessionDate"
+									   DateChanged="SetLocalSessionDate"
+									   Variant="Variant.Outlined"
+									   Margin="Margin.Dense" />
+					</MudItem>
+				</MudGrid>
 
-	<MudGrid Spacing="3">
-		<MudItem xs="12" md="4">
-			<CreatureMultiSelect TCreature="PlayerCharacter"
-								 Title="Player Characters"
-								 FilterLabel="Filter players"
-								 Items="Campaign.PlayerCharacters"
-								 SelectedItems="Session.PlayerCharacters"
-								 ItemAdded="Session.AddPlayerCharacter"
-								 ItemRemoved="Session.RemovePlayerCharacter" />
-		</MudItem>
+				<MudGrid Spacing="3">
+					<MudItem xs="12" md="4">
+						<CreatureMultiSelect TCreature="PlayerCharacter"
+											 Title="Player Characters"
+											 FilterLabel="Filter players"
+											 Items="Campaign.PlayerCharacters"
+											 SelectedItems="Session.PlayerCharacters"
+											 ItemAdded="Session.AddPlayerCharacter"
+											 ItemRemoved="Session.RemovePlayerCharacter" />
+					</MudItem>
 
-		<MudItem xs="12" md="4">
-			<CreatureMultiSelect TCreature="StaticCreature"
-								 Title="NPCs"
-								 FilterLabel="Filter NPCs"
-								 Items="Campaign.Npcs"
-								 SelectedItems="Session.Npcs"
-								 ItemAdded="Session.AddNpc"
-								 ItemRemoved="Session.RemoveNpc" />
-		</MudItem>
+					<MudItem xs="12" md="4">
+						<CreatureMultiSelect TCreature="StaticCreature"
+											 Title="NPCs"
+											 FilterLabel="Filter NPCs"
+											 Items="Campaign.Npcs"
+											 SelectedItems="Session.Npcs"
+											 ItemAdded="Session.AddNpc"
+											 ItemRemoved="Session.RemoveNpc" />
+					</MudItem>
 
-		<MudItem xs="12" md="4">
-			<CreatureMultiSelect TCreature="StaticCreature"
-								 Title="Enemies"
-								 FilterLabel="Filter enemies"
-								 Items="Campaign.Enemies"
-								 SelectedItems="Session.Enemies"
-								 ItemText="EnemyText"
-								 ItemAdded="Session.AddEnemy"
-								 ItemRemoved="Session.RemoveEnemy" />
-		</MudItem>
-	</MudGrid>
+					<MudItem xs="12" md="4">
+						<CreatureMultiSelect TCreature="StaticCreature"
+											 Title="Enemies"
+											 FilterLabel="Filter enemies"
+											 Items="Campaign.Enemies"
+											 SelectedItems="Session.Enemies"
+											 ItemText="EnemyText"
+											 ItemAdded="Session.AddEnemy"
+											 ItemRemoved="Session.RemoveEnemy" />
+					</MudItem>
+				</MudGrid>
+			</MudStack>
+		</MudTabPanel>
+
+		<MudTabPanel Text="Options" PanelClass="nested-tab-panel">
+			<MudStack Spacing="2" Class="home-panel-scroll">
+				<MudText Typo="Typo.subtitle1">Danger Zone</MudText>
+				<MudText Typo="Typo.body2" Color="Color.Secondary">
+					Delete this session and remove its references from associated combats.
+				</MudText>
+				<MudButton Variant="Variant.Filled"
+						   Color="Color.Error"
+						   StartIcon="@Icons.Material.Filled.Delete"
+						   Class="campaign-config-add-button"
+						   OnClick="DeleteSession">
+					Delete Session
+				</MudButton>
+			</MudStack>
+		</MudTabPanel>
+	</MudTabs>
 </MudStack>
 
 @code {
 	[Parameter]
 	public Session Session { get; set; } = null!;
+
+	[Parameter]
+	public EventCallback<Session> SessionDeleted { get; set; }
 
 	private Campaign Campaign => Session.Campaign;
 
@@ -92,5 +119,19 @@
 		return enemy.ChallengeRating is null
 			? enemy.Name
 			: $"{enemy.Name} (CR {enemy.ChallengeRating})";
+	}
+
+	private async Task DeleteSession()
+	{
+		var shouldDelete = await DialogService.ShowMessageBoxAsync(
+			"Delete session?",
+			"Deleting this session removes it from the campaign and removes all references to it.",
+			yesText: "Delete",
+			cancelText: "Cancel");
+
+		if (shouldDelete == true)
+		{
+			await SessionDeleted.InvokeAsync(Session);
+		}
 	}
 }

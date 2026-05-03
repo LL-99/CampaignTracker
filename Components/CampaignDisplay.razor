@@ -8,44 +8,50 @@
 					   Color="Color.Primary"
 					   Size="Size.Small"
 					   StartIcon="@Icons.Material.Filled.Add"
+					   Class="campaign-config-add-button"
 					   OnClick="AddPlayerCharacter">
 				Add Player
 			</MudButton>
 
-			@foreach (var playerCharacter in Campaign.PlayerCharacters.OrderBy(playerCharacter => playerCharacter.Name).ToList())
-			{
-				<MudPaper Elevation="1" Class="pa-3">
-					<MudStack Spacing="2">
-						<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-							<MudTextField @bind-Value="playerCharacter.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-							<MudIconButton Icon="@Icons.Material.Filled.Delete"
-										   Color="Color.Error"
+			<MudGrid Spacing="2">
+				@foreach (var playerCharacter in Campaign.PlayerCharacters.OrderBy(playerCharacter => playerCharacter.Name).ToList())
+				{
+					<MudItem xs="12" md="6">
+						<MudPaper Elevation="1" Class="pa-3 campaign-config-card">
+							<MudStack Spacing="2">
+								<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+									<MudTextField @bind-Value="playerCharacter.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+									<MudIconButton Icon="@Icons.Material.Filled.Delete"
+												   Color="Color.Error"
+												   Size="Size.Small"
+												   OnClick="@(() => Campaign.RemovePlayerCharacter(playerCharacter))" />
+								</MudStack>
+
+								<MudText Typo="Typo.subtitle2">Stat Configurations</MudText>
+								@foreach (var statConfiguration in playerCharacter.StatConfigurations.ToList())
+								{
+									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+										<MudTextField @bind-Value="statConfiguration.ClassesAndLevels" Label="Classes / Levels" Variant="Variant.Outlined" Margin="Margin.Dense" />
+										<MudNumericField T="float" @bind-Value="statConfiguration.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
+										<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
+													   Color="Color.Default"
+													   Size="Size.Small"
+													   OnClick="@(() => playerCharacter.StatConfigurations.Remove(statConfiguration))" />
+									</MudStack>
+								}
+
+								<MudButton Variant="Variant.Text"
 										   Size="Size.Small"
-										   OnClick="@(() => Campaign.RemovePlayerCharacter(playerCharacter))" />
-						</MudStack>
-
-						<MudText Typo="Typo.subtitle2">Stat Configurations</MudText>
-						@foreach (var statConfiguration in playerCharacter.StatConfigurations.ToList())
-						{
-							<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-								<MudTextField @bind-Value="statConfiguration.ClassesAndLevels" Label="Classes / Levels" Variant="Variant.Outlined" Margin="Margin.Dense" />
-								<MudNumericField T="float" @bind-Value="statConfiguration.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
-								<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
-											   Color="Color.Default"
-											   Size="Size.Small"
-											   OnClick="@(() => playerCharacter.StatConfigurations.Remove(statConfiguration))" />
+										   StartIcon="@Icons.Material.Filled.Add"
+										   Class="campaign-config-add-button"
+										   OnClick="@(() => AddStatConfiguration(playerCharacter))">
+									Add Stat Line
+								</MudButton>
 							</MudStack>
-						}
-
-						<MudButton Variant="Variant.Text"
-								   Size="Size.Small"
-								   StartIcon="@Icons.Material.Filled.Add"
-								   OnClick="@(() => AddStatConfiguration(playerCharacter))">
-							Add Stat Line
-						</MudButton>
-					</MudStack>
-				</MudPaper>
-			}
+						</MudPaper>
+					</MudItem>
+				}
+			</MudGrid>
 		</MudStack>
 	</MudTabPanel>
 
@@ -115,6 +121,7 @@
 				   Color="Color.Primary"
 				   Size="Size.Small"
 				   StartIcon="@Icons.Material.Filled.Add"
+				   Class="campaign-config-add-button"
 				   OnClick="@addCreature">
 			@addButtonText
 		</MudButton>

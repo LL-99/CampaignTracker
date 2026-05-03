@@ -109,18 +109,18 @@ namespace CampaignTracker.Model
             session5.AddNpc(captainIlyra);
             session6.AddNpc(archivistNera);
 
-            Combat(campaign, "Roadside Pack", [session1], [mira, thalia], [], [ashWolf, ashWolf]);
-            Combat(campaign, "Burned Wagon Cultists", [session1], [mira, owen, seraphine, thalia], [captainIlyra], [bloodCultist, bloodCultist]);
-            Combat(campaign, "Market Knife Cell", [session2], [mira, owen, seraphine, thalia], [quartermasterRusk], [bloodCultist, hobgoblinShield]);
-            Combat(campaign, "The Long Hunt", [session2, session3], [mira, thalia], [], [ashWolf, ghoulScout, ghoulScout]);
-            Combat(campaign, "Quarry Gate", [session3], [mira, owen, seraphine, thalia], [archivistNera], [hobgoblinShield, hobgoblinShield, ghoulScout]);
-            Combat(campaign, "Bone Warden Awakening", [session3], [owen, seraphine, thalia], [archivistNera], [boneWarden]);
-            Combat(campaign, "Abbey Cloister Ambush", [session4], [mira, owen, seraphine, thalia], [brotherCalem], [bloodCultist, plagueRatSwarm]);
-            Combat(campaign, "Crypt Flame Trial", [session4], [mira, owen, seraphine], [], [emberDrake]);
-            Combat(campaign, "Blackgate Breach", [session5], [mira, owen, seraphine, thalia], [captainIlyra], [hobgoblinShield, obsidianMyrmidon]);
-            Combat(campaign, "Siege of Blackgate", [session5, session6], [mira, owen, thalia], [captainIlyra], [obsidianMyrmidon, boneWarden]);
-            Combat(campaign, "Rat Flooded Tunnels", [session6], [mira, seraphine, thalia], [archivistNera], [plagueRatSwarm, plagueRatSwarm]);
-            Combat(campaign, "Cinder Heart Guardian", [session6], [mira, owen, seraphine, thalia], [archivistNera], [emberDrake, boneWarden]);
+            Combat(campaign, "Roadside Pack", [(session1, 1)], [mira, thalia], [], [ashWolf, ashWolf]);
+            Combat(campaign, "Burned Wagon Cultists", [(session1, 2)], [mira, owen, seraphine, thalia], [captainIlyra], [bloodCultist, bloodCultist]);
+            Combat(campaign, "Market Knife Cell", [(session2, 1)], [mira, owen, seraphine, thalia], [quartermasterRusk], [bloodCultist, hobgoblinShield]);
+            Combat(campaign, "The Long Hunt", [(session2, 2), (session3, 1)], [mira, thalia], [], [ashWolf, ghoulScout, ghoulScout]);
+            Combat(campaign, "Quarry Gate", [(session3, 2)], [mira, owen, seraphine, thalia], [archivistNera], [hobgoblinShield, hobgoblinShield, ghoulScout]);
+            Combat(campaign, "Bone Warden Awakening", [(session3, 3)], [owen, seraphine, thalia], [archivistNera], [boneWarden]);
+            Combat(campaign, "Abbey Cloister Ambush", [(session4, 1)], [mira, owen, seraphine, thalia], [brotherCalem], [bloodCultist, plagueRatSwarm]);
+            Combat(campaign, "Crypt Flame Trial", [(session4, 2)], [mira, owen, seraphine], [], [emberDrake]);
+            Combat(campaign, "Blackgate Breach", [(session5, 1)], [mira, owen, seraphine, thalia], [captainIlyra], [hobgoblinShield, obsidianMyrmidon]);
+            Combat(campaign, "Siege of Blackgate", [(session5, 2), (session6, 1)], [mira, owen, thalia], [captainIlyra], [obsidianMyrmidon, boneWarden]);
+            Combat(campaign, "Rat Flooded Tunnels", [(session6, 2)], [mira, seraphine, thalia], [archivistNera], [plagueRatSwarm, plagueRatSwarm]);
+            Combat(campaign, "Cinder Heart Guardian", [(session6, 3)], [mira, owen, seraphine, thalia], [archivistNera], [emberDrake, boneWarden]);
 
             return campaign;
         }
@@ -169,7 +169,7 @@ namespace CampaignTracker.Model
         private static Combat Combat(
             Campaign campaign,
             string name,
-            IReadOnlyCollection<Session> sessions,
+            IReadOnlyCollection<(Session Session, int CombatIndex)> sessions,
             IReadOnlyCollection<PlayerCharacter> players,
             IReadOnlyCollection<StaticCreature> npcs,
             IReadOnlyCollection<StaticCreature> enemies)
@@ -180,9 +180,9 @@ namespace CampaignTracker.Model
                 ActionLog = new ActionLog()
             };
 
-            foreach (var session in sessions)
+            foreach (var (session, combatIndex) in sessions)
             {
-                combat.AddSession(session);
+                session.AddCombat(combat, combatIndex);
             }
 
             foreach (var player in players)

@@ -52,7 +52,7 @@
 									   Size="Size.Small"
 									   StartIcon="@Icons.Material.Filled.Add"
 									   OnClick="AddCombatButtonClicked"
-									   Disabled="@(DataService.Campaign is null)">
+									   Disabled="@(!CanAddCombat)">
 								Add Combat
 							</MudButton>
 						</MudStack>
@@ -96,40 +96,68 @@
 		<MudTabPanel Text="Content" PanelClass="home-tab-panel">
 			<MudGrid Spacing="2" Class="home-content-grid">
 				<MudItem xs="12" md="3" Class="home-content-column">
-					<MudPaper Elevation="1" Class="home-scroll-pane">
-						<MudList T="CampaignElement">
-							@if (DataService.Campaign != null)
+					<MudPaper Elevation="1" Class="home-fill-container">
+						<MudStack Spacing="0" Class="home-scroll-pane">
+							@if (DataService.Campaign is not null)
 							{
 								var sortedSessions = DataService.Campaign.Sessions.OrderBy(session => session.DateUtc).ToList();
 
 								for (int i = 0; i < sortedSessions.Count; i++)
 								{
 									var session = sortedSessions[i];
-									<MudListItem Text=@($"Session {i + 1}: {session.Name}")
-												 Value="@(CampaignElement.FromSession(session))"
-												 ExpandedChanged="@(_ => SessionClicked(session))"
-												 OnClick="@(() => SessionClicked(session))">
-										<NestedList>
-											@if (session.Combats.Count > 0)
-											{
-												var combats = session.Combats.OrderBy(combat => combat.Name).ToList();
+									var isExpanded = _expandedSessionGuids.Contains(session.GUID);
 
-												for (int j = 0; j < combats.Count; j++)
-												{
-													var combat = combats[j];
+									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="campaign-element-row">
+										<MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+													   Size="Size.Small"
+													   OnClick="@(() => ToggleSessionExpanded(session))" />
+										<MudButton Variant="Variant.Text"
+												   Color="Color.Default"
+												   Class="campaign-element-text-button"
+												   OnClick="@(() => SessionClicked(session))">
+											Session @(i + 1): @session.Name
+										</MudButton>
+									</MudStack>
 
-													<div @onclick:stopPropagation="true">
-														<MudListItem Text=@(string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {j + 1}" : combat.Name)
-																	 Value="@(CampaignElement.FromCombat(combat))"
-																	 OnClick="@(() => CombatClicked(combat))" />
-													</div>
-												}
-											}
-										</NestedList>
-									</MudListItem>
+									@if (isExpanded)
+									{
+										foreach (var combat in session.OrderedCombats)
+										{
+											<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="campaign-element-row campaign-combat-row">
+												<MudText Typo="Typo.caption" Color="Color.Secondary" Class="campaign-combat-index">
+													@session.GetCombatIndex(combat)
+												</MudText>
+												<MudButton Variant="Variant.Text"
+														   Color="Color.Default"
+														   Class="campaign-element-text-button"
+														   OnClick="@(() => CombatClicked(session, combat))">
+													@(string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {combat.GUID}" : combat.Name)
+												</MudButton>
+											</MudStack>
+										}
+									}
 								}
 							}
-						</MudList>
+						</MudStack>
+						<MudDivider />
+						<MudStack Row="true" Spacing="1" Class="pa-2 flex-wrap">
+							<MudButton Variant="Variant.Outlined"
+									   Color="Color.Primary"
+									   Size="Size.Small"
+									   StartIcon="@Icons.Material.Filled.Add"
+									   OnClick="AddSessionButtonClicked"
+									   Disabled="@(DataService.Campaign is null)">
+								Add Session
+							</MudButton>
+							<MudButton Variant="Variant.Filled"
+									   Color="Color.Primary"
+									   Size="Size.Small"
+									   StartIcon="@Icons.Material.Filled.Add"
+									   OnClick="AddCombatButtonClicked"
+									   Disabled="@(!CanAddCombat)">
+								Add Combat
+							</MudButton>
+						</MudStack>
 					</MudPaper>
 				</MudItem>
 
@@ -141,11 +169,14 @@
 						{
 							if (LatestSel.IsSession)
 							{
-								<SessionDisplay Session=@LatestSel.Session />
+								<SessionDisplay Session=@LatestSel.Session SessionDeleted="SessionDeleted" />
 							}
 							else if (LatestSel.Combat is not null)
 							{
-								<CombatDisplay Combat="@LatestSel.Combat" />
+								<CombatDisplay Combat="@LatestSel.Combat"
+											   Campaign="DataService.Campaign"
+											   CombatDeleted="CombatDeleted"
+											   CombatUpdated="CombatUpdated" />
 							}
 						}
 					</MudPaper>
@@ -196,6 +227,8 @@
 
 
 @code {
+	private readonly HashSet<Guid> _expandedSessionGuids = [];
+
 	private async Task ExportButtonClicked()
 	{
 		await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", DataService.GetCampaignString());
@@ -221,47 +254,55 @@
 			return;
 		}
 
-		var nextDate = campaign.Sessions.Count == 0
-			? DateTime.UtcNow
-			: campaign.Sessions.Max(session => session.DateUtc).AddDays(7);
+		var baseDate = LatestSel?.ParentSession?.DateUtc
+			?? LatestSel?.Session?.DateUtc
+			?? (campaign.Sessions.Count == 0
+				? DateTime.UtcNow
+				: campaign.Sessions.Max(session => session.DateUtc));
 
 		var session = new Session(campaign)
 		{
-			Name = $"Session {campaign.Sessions.Count}",
-			DateUtc = nextDate
+			Name = $"Session {campaign.Sessions.Count + 1}",
+			DateUtc = GetNextFreeSessionDate(campaign, baseDate)
 		};
 
 		LatestSel = CampaignElement.FromSession(session);
+		_expandedSessionGuids.Add(session.GUID);
 	}
 
 	private void AddCombatButtonClicked()
 	{
-		if (DataService.Campaign is not Campaign campaign)
+		if (DataService.Campaign is not Campaign campaign || GetCombatInsertSession(campaign) is not Session session)
 		{
 			return;
 		}
 
 		var combat = new Combat(campaign)
 		{
-			Name = $"Combat {campaign.Combats.Count}"
+			Name = $"Combat {campaign.Combats.Count + 1}",
+			ActionLog = new ActionLog()
 		};
 
-		if (LatestSel?.Session is { } session)
-		{
-			session.AddCombat(combat);
-		}
+		var combatIndex = LatestSel?.Combat is { } selectedCombat && LatestSel.ParentSession?.GUID == session.GUID
+			? session.GetCombatIndex(selectedCombat) + 1
+			: session.OrderedCombats.Count + 1;
 
-		LatestSel = CampaignElement.FromCombat(combat);
+		session.AddCombat(combat, combatIndex);
+		LatestSel = CampaignElement.FromCombat(session, combat);
+		_expandedSessionGuids.Add(session.GUID);
 	}
 
 
 
 	public CampaignElement? LatestSel { get; set; }
 
+	private bool CanAddCombat => DataService.Campaign?.Sessions.Count > 0;
+
 	private string LatestSelText => LatestSel switch
 	{
 		{ IsSession: true, Session: { } session } => $"Session {session.Name}",
-		{ IsSession: false, Combat: { } combat } => string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {combat.GUID}" : $"Combat {combat.Name}",
+		{ IsSession: false, ParentSession: { } session, Combat: { } combat } => $"{session.Name} / {(string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {combat.GUID}" : combat.Name)}",
+		{ IsSession: false, Combat: { } combat } => string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {combat.GUID}" : combat.Name,
 		_ => "none"
 	};
 
@@ -270,16 +311,148 @@
 		LatestSel = CampaignElement.FromSession(session);
 	}
 
-	private void CombatClicked(Combat combat)
+	private void CombatClicked(Session session, Combat combat)
 	{
-		LatestSel = CampaignElement.FromCombat(combat);
+		LatestSel = CampaignElement.FromCombat(session, combat);
+	}
+
+	private void ToggleSessionExpanded(Session session)
+	{
+		if (!_expandedSessionGuids.Add(session.GUID))
+		{
+			_expandedSessionGuids.Remove(session.GUID);
+		}
+	}
+
+	private void SessionDeleted(Session session)
+	{
+		if (DataService.Campaign is not Campaign campaign)
+		{
+			return;
+		}
+
+		var replacement = GetPreviousCampaignElement(CampaignElement.FromSession(session));
+		campaign.RemoveSession(session);
+		_expandedSessionGuids.Remove(session.GUID);
+		LatestSel = IsValidCampaignElement(replacement) ? replacement : null;
+	}
+
+	private void CombatDeleted(Combat combat)
+	{
+		if (DataService.Campaign is not Campaign campaign)
+		{
+			return;
+		}
+
+		var replacement = LatestSel?.Combat?.GUID == combat.GUID
+			? GetPreviousCampaignElement(LatestSel)
+			: LatestSel;
+
+		campaign.RemoveCombat(combat);
+		LatestSel = IsValidCampaignElement(replacement) ? replacement : null;
+	}
+
+	private void CombatUpdated()
+	{
+		if (LatestSel is not { Combat: { } combat } || DataService.Campaign is null)
+		{
+			return;
+		}
+
+		if (LatestSel.ParentSession?.Combats.Any(existing => existing.GUID == combat.GUID) == true)
+		{
+			return;
+		}
+
+		var parentSession = combat.Sessions
+			.OrderBy(session => session.DateUtc)
+			.FirstOrDefault();
+
+		LatestSel = parentSession is null
+			? null
+			: CampaignElement.FromCombat(parentSession, combat);
+	}
+
+	private Session? GetCombatInsertSession(Campaign campaign)
+	{
+		if (LatestSel?.ParentSession is { } parentSession)
+		{
+			return parentSession;
+		}
+
+		if (LatestSel?.Session is { } session)
+		{
+			return session;
+		}
+
+		return campaign.Sessions
+			.OrderBy(session => session.DateUtc)
+			.LastOrDefault();
+	}
+
+	private static DateTime GetNextFreeSessionDate(Campaign campaign, DateTime baseDate)
+	{
+		var candidate = baseDate.AddDays(1);
+
+		while (campaign.Sessions.Any(session => session.DateUtc.Date == candidate.Date))
+		{
+			candidate = candidate.AddDays(1);
+		}
+
+		return candidate;
+	}
+
+	private CampaignElement? GetPreviousCampaignElement(CampaignElement element)
+	{
+		if (DataService.Campaign is not Campaign campaign)
+		{
+			return null;
+		}
+
+		if (element.Combat is { } combat && element.ParentSession is { } parentSession)
+		{
+			var orderedCombats = parentSession.OrderedCombats.ToList();
+			var combatIndex = orderedCombats.FindIndex(existing => existing.GUID == combat.GUID);
+
+			return combatIndex > 0
+				? CampaignElement.FromCombat(parentSession, orderedCombats[combatIndex - 1])
+				: CampaignElement.FromSession(parentSession);
+		}
+
+		if (element.Session is { } session)
+		{
+			var sortedSessions = campaign.Sessions.OrderBy(existing => existing.DateUtc).ToList();
+			var sessionIndex = sortedSessions.FindIndex(existing => existing.GUID == session.GUID);
+
+			return sessionIndex > 0
+				? CampaignElement.FromSession(sortedSessions[sessionIndex - 1])
+				: null;
+		}
+
+		return null;
+	}
+
+	private bool IsValidCampaignElement(CampaignElement? element)
+	{
+		if (DataService.Campaign is not Campaign campaign || element is null)
+		{
+			return false;
+		}
+
+		return element switch
+		{
+			{ IsSession: true, Session: { } session } => campaign.Sessions.Any(existing => existing.GUID == session.GUID),
+			{ IsSession: false, ParentSession: { } session, Combat: { } combat } => campaign.Combats.Any(existing => existing.GUID == combat.GUID)
+				&& session.Combats.Any(existing => existing.GUID == combat.GUID),
+			_ => false
+		};
 	}
 
 
-	public record CampaignElement(bool IsSession, Session? Session, Combat? Combat)
+	public record CampaignElement(bool IsSession, Session? Session, Combat? Combat, Session? ParentSession)
 	{
-		public static CampaignElement FromSession(Session session) => new(true, session, null);
+		public static CampaignElement FromSession(Session session) => new(true, session, null, session);
 
-		public static CampaignElement FromCombat(Combat combat) => new(false, null, combat);
+		public static CampaignElement FromCombat(Session parentSession, Combat combat) => new(false, null, combat, parentSession);
 	}
 }

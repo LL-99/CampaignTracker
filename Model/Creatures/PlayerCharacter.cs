@@ -10,7 +10,7 @@
         public List<PlayerCharacterStatConfiguration> StatConfigurations { get; set; } = [];
     }
 
-    public class PlayerCharacterStatConfiguration
+    public class PlayerCharacterStatConfiguration : DataElement
     {
         public string ClassesAndLevels { get; set; } = string.Empty;
         public float HP { get; set; }

@@ -190,6 +190,66 @@ code {
     overflow: auto;
 }
 
+.detail-display {
+    height: 100%;
+    overflow: hidden;
+}
+
+.campaign-config-add-button {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    min-height: 30px;
+}
+
+.campaign-config-card {
+    height: 100%;
+}
+
+.campaign-element-row {
+    min-height: 36px;
+    padding: 0 0.25rem;
+}
+
+.campaign-combat-row {
+    padding-left: 2.5rem;
+}
+
+.campaign-element-text-button {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-start;
+    text-transform: none;
+}
+
+.campaign-element-text-button .mud-button-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.campaign-combat-index {
+    flex: 0 0 1.5rem;
+    text-align: right;
+}
+
+.combat-player-row,
+.combat-session-row {
+    min-height: 44px;
+}
+
+.combat-player-checkbox {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.combat-stat-select {
+    flex: 0 0 12rem;
+}
+
+.combat-order-input {
+    flex: 0 0 6rem;
+}
+
 @media (min-width: 960px) {
     .home-content-column {
         height: 100%;

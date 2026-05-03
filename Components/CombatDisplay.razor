@@ -1,5 +1,8 @@
 ﻿@using CampaignTracker.Model.Combats
 @using CampaignTracker.Model.Creatures
+@using CampaignTracker.Model.Structure
+
+@inject IDialogService DialogService
 
 <MudStack Spacing="3" Class="detail-display">
 	<MudTextField @bind-Value="Combat.Name" Label="Combat Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -14,13 +17,57 @@
 		<MudTabPanel Text="Creatures" PanelClass="nested-tab-panel">
 			<MudGrid Spacing="3" Class="home-panel-scroll">
 				<MudItem xs="12" md="4">
-					<CreatureMultiSelect TCreature="PlayerCharacter"
-										 Title="Player Characters"
-										 FilterLabel="Filter players"
-										 Items="AvailablePlayerCharacters"
-										 SelectedItems="Combat.PlayerCharacters"
-										 ItemAdded="Combat.AddPlayerCharacter"
-										 ItemRemoved="Combat.RemovePlayerCharacter" />
+					<MudStack Spacing="2">
+						<MudText Typo="Typo.subtitle1">Player Characters</MudText>
+						<MudTextField T="string"
+									  @bind-Value="_playerFilter"
+									  Label="Filter players"
+									  Variant="Variant.Outlined"
+									  Margin="Margin.Dense"
+									  Immediate="true"
+									  Adornment="Adornment.Start"
+									  AdornmentIcon="@Icons.Material.Filled.Search" />
+
+						<MudStack Spacing="1" Class="creature-select-list">
+							@if (!FilteredPlayerCharacters.Any())
+							{
+								<MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">No matching players</MudText>
+							}
+							else
+							{
+								@foreach (var playerCharacter in FilteredPlayerCharacters)
+								{
+									var isSelected = IsPlayerCharacterSelected(playerCharacter);
+
+									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="combat-player-row">
+										<MudCheckBox T="bool"
+													 Dense="true"
+													 Label="@playerCharacter.Name"
+													 Value="@isSelected"
+													 Class="combat-player-checkbox"
+													 ValueChanged="@((bool selected) => SetPlayerCharacterSelected(playerCharacter, selected))" />
+										@if (isSelected)
+										{
+											<MudSelect T="Guid"
+													   Value="@GetSelectedStatConfigurationGuid(playerCharacter)"
+													   ValueChanged="@((Guid statConfigurationGuid) => SetPlayerCharacterStatConfiguration(playerCharacter, statConfigurationGuid))"
+													   Dense="true"
+													   Margin="Margin.Dense"
+													   Variant="Variant.Outlined"
+													   Class="combat-stat-select">
+												@foreach (var statConfiguration in playerCharacter.StatConfigurations.OrderByDescending(statConfiguration => statConfiguration.HP))
+												{
+													<MudSelectItem T="Guid" Value="@statConfiguration.GUID">
+														@statConfiguration.ClassesAndLevels (@statConfiguration.HP HP)
+													</MudSelectItem>
+												}
+											</MudSelect>
+										}
+									</MudStack>
+								}
+							}
+						</MudStack>
+					</MudStack>
 				</MudItem>
 				<MudItem xs="12" md="4">
 					<CreatureMultiSelect TCreature="StaticCreature"
@@ -43,12 +90,59 @@
 				</MudItem>
 			</MudGrid>
 		</MudTabPanel>
+
+		<MudTabPanel Text="Options" PanelClass="nested-tab-panel">
+			<MudStack Spacing="2" Class="home-panel-scroll">
+				<MudText Typo="Typo.subtitle1">Sessions</MudText>
+				@if (Campaign is null)
+				{
+					<MudText Typo="Typo.body2" Color="Color.Secondary">No campaign loaded.</MudText>
+				}
+				else
+				{
+					@foreach (var session in Campaign.Sessions.OrderBy(session => session.DateUtc))
+					{
+						var isAssociated = Combat.Sessions.Any(existing => existing.GUID == session.GUID);
+
+						<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="combat-session-row">
+							<MudCheckBox T="bool"
+										 Dense="true"
+										 Label="@($"{session.DateUtc.ToLocalTime():d} - {session.Name}")"
+										 Value="@isAssociated"
+										 ValueChanged="@((bool selected) => SetSessionAssociation(session, selected))" />
+							@if (isAssociated)
+							{
+								<MudNumericField T="int"
+												 Value="@session.GetCombatIndex(Combat)"
+												 ValueChanged="@((int combatIndex) => SetSessionCombatIndex(session, combatIndex))"
+												 Label="Order"
+												 Min="1"
+												 Variant="Variant.Outlined"
+												 Margin="Margin.Dense"
+												 Class="combat-order-input" />
+							}
+						</MudStack>
+					}
+				}
+			</MudStack>
+		</MudTabPanel>
 	</MudTabs>
 </MudStack>
 
 @code {
+	private string _playerFilter = string.Empty;
+
 	[Parameter]
 	public Combat Combat { get; set; } = null!;
+
+	[Parameter]
+	public Campaign? Campaign { get; set; }
+
+	[Parameter]
+	public EventCallback<Combat> CombatDeleted { get; set; }
+
+	[Parameter]
+	public EventCallback CombatUpdated { get; set; }
 
 	private IReadOnlyCollection<PlayerCharacter> AvailablePlayerCharacters => Combat.Sessions
 		.SelectMany(session => session.PlayerCharacters)
@@ -56,6 +150,9 @@
 		.Select(group => group.First())
 		.OrderBy(playerCharacter => playerCharacter.Name)
 		.ToList();
+
+	private IEnumerable<PlayerCharacter> FilteredPlayerCharacters => AvailablePlayerCharacters
+		.Where(playerCharacter => string.IsNullOrWhiteSpace(_playerFilter) || playerCharacter.Name.Contains(_playerFilter, StringComparison.OrdinalIgnoreCase));
 
 	private IReadOnlyCollection<StaticCreature> AvailableNpcs => Combat.Sessions
 		.SelectMany(session => session.Npcs)
@@ -76,5 +173,77 @@
 		return enemy.ChallengeRating is null
 			? enemy.Name
 			: $"{enemy.Name} (CR {enemy.ChallengeRating})";
+	}
+
+	private bool IsPlayerCharacterSelected(PlayerCharacter playerCharacter)
+	{
+		return Combat.PlayerCharacters.Any(selected => selected.GUID == playerCharacter.GUID);
+	}
+
+	private Task SetPlayerCharacterSelected(PlayerCharacter playerCharacter, bool selected)
+	{
+		if (selected)
+		{
+			Combat.AddPlayerCharacter(playerCharacter);
+		}
+		else
+		{
+			Combat.RemovePlayerCharacter(playerCharacter);
+		}
+
+		return Task.CompletedTask;
+	}
+
+	private Guid GetSelectedStatConfigurationGuid(PlayerCharacter playerCharacter)
+	{
+		return Combat.GetSelectedStatConfiguration(playerCharacter)?.GUID ?? Guid.Empty;
+	}
+
+	private Task SetPlayerCharacterStatConfiguration(PlayerCharacter playerCharacter, Guid statConfigurationGuid)
+	{
+		var statConfiguration = playerCharacter.StatConfigurations
+			.FirstOrDefault(existing => existing.GUID == statConfigurationGuid);
+
+		if (statConfiguration is not null)
+		{
+			Combat.SetSelectedStatConfiguration(playerCharacter, statConfiguration);
+		}
+
+		return Task.CompletedTask;
+	}
+
+	private async Task SetSessionAssociation(Session session, bool selected)
+	{
+		if (selected)
+		{
+			session.AddCombat(Combat);
+			await CombatUpdated.InvokeAsync();
+			return;
+		}
+
+		if (Combat.Sessions.Count <= 1)
+		{
+			var shouldDelete = await DialogService.ShowMessageBoxAsync(
+				"Delete combat?",
+				"Removing the last session from this combat will delete the combat.",
+				yesText: "Delete",
+				cancelText: "Cancel");
+
+			if (shouldDelete == true)
+			{
+				await CombatDeleted.InvokeAsync(Combat);
+			}
+
+			return;
+		}
+
+		Combat.RemoveSession(session);
+		await CombatUpdated.InvokeAsync();
+	}
+
+	private async Task SetSessionCombatIndex(Session session, int combatIndex)
+	{
+		session.SetCombatIndex(Combat, combatIndex);
+		await CombatUpdated.InvokeAsync();
 	}
 }

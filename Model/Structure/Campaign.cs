@@ -13,6 +13,33 @@ namespace CampaignTracker.Model.Structure
         public List<StaticCreature> Npcs { get; set; } = [];
         public List<StaticCreature> Enemies { get; set; } = [];
 
+        public void RemoveSession(Session session)
+        {
+            foreach (var combat in session.Combats.ToList())
+            {
+                session.RemoveCombat(combat);
+
+                if (!combat.Sessions.Any())
+                {
+                    RemoveCombat(combat);
+                }
+            }
+
+            Sessions.RemoveAll(existing => existing.GUID == session.GUID);
+            session.ClearReferences();
+        }
+
+        public void RemoveCombat(Combat combat)
+        {
+            foreach (var session in combat.Sessions.ToList())
+            {
+                session.RemoveCombat(combat);
+            }
+
+            Combats.RemoveAll(existing => existing.GUID == combat.GUID);
+            combat.ClearReferences();
+        }
+
         public void AddPlayerCharacter(PlayerCharacter playerCharacter)
         {
             AddCreature(PlayerCharacters, playerCharacter);
