@@ -14,18 +14,21 @@ else
 			List<Creature> actors = [];
 
 			foreach (var actorGuid in entry.Actors)
-				actors.Add(GetCreatureFromGUID(actorGuid));
+			{
+				if (GetCreatureFromGUID(actorGuid) is { } actor)
+				{
+					actors.Add(actor);
+				}
+			}
 
-			<MudStack Row AlignItems="AlignItems.Center">
+			<div class="combat-action-log-entry">
 				@foreach (var a in actors)
 				{
 					<MudChip T="string" Class="ma-0">
-						<MudText Typo="Typo.body2">@a.Name</MudText>
+						@a.Name
 					</MudChip>
 				}
 			
-				<MudText>:</MudText>
-
 				@foreach (var e in entry.Effects)
 				{
 					switch (e.Type)
@@ -34,37 +37,43 @@ else
 							var asDamageEntry = (ActionEffect_Damage)e;
 
 							var groupedDamageInstances = asDamageEntry.DamageInstances
-							.Select(x => (GetCreatureFromGUID(x.Target), (int)(x.BaseDamage * x.DamageMultiplier) /* TODO add damage resist/vuln */ , x))
-							.GroupBy(x => x.Item2);
+								.Select(x => new
+								{
+									TargetName = GetCreatureFromGUID(x.Target)?.Name ?? "Unknown creature",
+									ActualDamage = (int)(x.BaseDamage * x.DamageMultiplier), /* TODO add damage resist/vuln */
+									x.DamageType
+								})
+								.GroupBy(x => new { x.ActualDamage, x.DamageType })
+								.ToList();
 
-							<MudText>dealt</MudText>
+							<span>dealt</span>
 
-							for (int i = 0; i < groupedDamageInstances.Count(); i++)
+							for (int i = 0; i < groupedDamageInstances.Count; i++)
 							{
-								var group = groupedDamageInstances.ElementAt(i);
-								<MudText>@group.First().Item2 damage to</MudText>
+								var group = groupedDamageInstances[i].ToList();
+								<span>@groupedDamageInstances[i].Key.ActualDamage @FormatDamageType(groupedDamageInstances[i].Key.DamageType) damage to</span>
 
 								foreach (var dmgInst in group)
 								{
 									<MudChip T="string" Class="ma-0">
-										<MudText Typo="Typo.body2">@dmgInst.Item1.Name</MudText>
+										@dmgInst.TargetName
 									</MudChip>
 								}
 
-								if(i == groupedDamageInstances.Count() - 2)
+									if (i == groupedDamageInstances.Count - 2)
 								{
-									<MudText> and </MudText>
+									<span>and</span>
 								}
-								else if (i < groupedDamageInstances.Count() - 2)
+								else if (i < groupedDamageInstances.Count - 2)
 								{
-									<MudText>, </MudText>									
+									<span>,</span>
 								}
 
 							}
 							break;
 					}
 				}
-			</MudStack>
+			</div>
 		}
 	</MudStack>
 }
@@ -75,7 +84,7 @@ else
 	public Combat? Combat { get; set; }
 
 
-	private Creature GetCreatureFromGUID(Guid guid)
+	private Creature? GetCreatureFromGUID(Guid guid)
 	{
 		if (Combat == null)
 			return null;
@@ -88,6 +97,11 @@ else
 			return Combat.Enemies.First(x => x.GUID == guid);
 		
 		return null;
+	}
+
+	private static string FormatDamageType(DamageType damageType)
+	{
+		return damageType.ToString().ToLowerInvariant();
 	}
 
 }

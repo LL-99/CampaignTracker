@@ -250,6 +250,14 @@ code {
     flex: 0 0 6rem;
 }
 
+.combat-action-log-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.25rem;
+    row-gap: 0.25rem;
+}
+
 @media (min-width: 960px) {
     .home-content-column {
         height: 100%;
