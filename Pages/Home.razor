@@ -95,7 +95,7 @@
 		</MudTabPanel>
 		<MudTabPanel Text="Content" PanelClass="home-tab-panel">
 			<MudGrid Spacing="2" Class="home-content-grid">
-				<MudItem xs="12" md="3" Class="home-content-column">
+				<MudItem xs="4" md="3" Class="home-content-column">
 					<MudPaper Elevation="1" Class="home-fill-container">
 						<MudStack Spacing="0" Class="home-scroll-pane">
 							@if (DataService.Campaign is not null)
@@ -106,6 +106,7 @@
 								{
 									var session = sortedSessions[i];
 									var isExpanded = _expandedSessionGuids.Contains(session.GUID);
+									int sessionId = i + 1;
 
 									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="campaign-element-row">
 										<MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
@@ -115,7 +116,7 @@
 												   Color="Color.Default"
 												   Class="campaign-element-text-button"
 												   OnClick="@(() => SessionClicked(session))">
-											Session @(i + 1): @session.Name
+											Session @sessionId: @session.Name
 										</MudButton>
 									</MudStack>
 
@@ -161,7 +162,7 @@
 					</MudPaper>
 				</MudItem>
 
-				<MudItem xs="12" md="9" Class="home-content-column">
+				<MudItem xs="8" md="9" Class="home-content-column">
 					<MudPaper Elevation="1" Class="pa-3 home-scroll-pane">
 						<MudText>Latest selection: @LatestSelText</MudText>
 
