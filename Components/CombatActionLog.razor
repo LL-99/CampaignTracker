@@ -1,0 +1,30 @@
+﻿@using CampaignTracker.Model.Combats
+
+@if(Combat == null)
+{
+	<MudText>No combat selected!</MudText>
+}
+else
+{
+	<MudText>Action Log:</MudText>
+
+	@foreach(var entry in Combat.ActionLog.Entries)
+	{
+		<MudText>@entry</MudText>
+	}
+}
+
+
+@code {
+
+	public Combat? Combat { get; set; } = new()
+	{
+		ActionLog = new()
+		{
+			Entries = [
+			new ActionLogEntry()
+			]
+		}
+	}
+	
+}

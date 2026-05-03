@@ -18,6 +18,27 @@
         Thunder
     }
 
+    public enum Condition
+    {
+        // 5e
+        Blinded, 
+        Charmed, 
+        Deafened, 
+        Exhaustion, 
+        Frightened, 
+        Grappled, 
+        Incapacitated, 
+        Invisible, 
+        Paralyzed, 
+        Petrified, 
+        Poisoned, 
+        Prone, 
+        Restrained, 
+        Stunned, 
+        Unconscious, 
+        Surprised
+    }
+
     public class CreatureStats
     {
         public CreatureStats()

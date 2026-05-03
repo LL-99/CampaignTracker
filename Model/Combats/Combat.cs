@@ -7,7 +7,7 @@ namespace CampaignTracker.Model.Combats
     public class Combat : DataElement
     {
         public string Name { get; set; } = string.Empty;
-        public ActionLog ActionLog { get; set; }
+        public ActionLog ActionLog { get; set; } = new();
         public List<Guid> SessionGUIDs { get; private set; } = [];
         public List<Guid> PlayerCharacterGUIDs { get; private set; } = [];
         public List<Guid> NpcGUIDs { get; private set; } = [];
