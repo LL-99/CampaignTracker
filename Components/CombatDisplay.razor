@@ -16,7 +16,7 @@
 
 		<MudTabPanel Text="Creatures" PanelClass="nested-tab-panel">
 			<MudGrid Spacing="3" Class="home-panel-scroll">
-				<MudItem xs="12" md="4">
+				<MudItem xs="12" md="6">
 					<MudStack Spacing="2">
 						<MudText Typo="Typo.subtitle1">Player Characters</MudText>
 						<MudTextField T="string"
@@ -69,7 +69,7 @@
 						</MudStack>
 					</MudStack>
 				</MudItem>
-				<MudItem xs="12" md="4">
+				<MudItem xs="12" md="3">
 					<CreatureMultiSelect TCreature="StaticCreature"
 										 Title="NPCs"
 										 FilterLabel="Filter NPCs"
@@ -78,7 +78,7 @@
 										 ItemAdded="Combat.AddNpc"
 										 ItemRemoved="Combat.RemoveNpc" />
 				</MudItem>
-				<MudItem xs="12" md="4">
+				<MudItem xs="12" md="3">
 					<CreatureMultiSelect TCreature="StaticCreature"
 										 Title="Enemies"
 										 FilterLabel="Filter enemies"
