@@ -127,13 +127,18 @@ code {
 .home-tabs,
 .nested-tabs {
     flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
+    max-height: 100%;
     overflow: hidden;
 }
 
 .home-tabs-panels,
 .nested-tab-panels {
+    flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
+    max-height: 100%;
     overflow: hidden;
 }
 
