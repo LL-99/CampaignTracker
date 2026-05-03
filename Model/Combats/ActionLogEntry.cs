@@ -22,26 +22,43 @@ namespace CampaignTracker.Model.Combats
     public class ActionEffect
     {
         public EffectType Type { get; set; }
-        public Guid[] Targets { get; set; }
-        public string Notes { get; set; }
+        public string? Description { get; set; }
     }
 
-    public class ActionEffect_Damage
+    public class ActionEffect_Damage : ActionEffect
     {
         public ActionEffect_DamageEntry[] DamageInstances { get; set; }
     }
 
     public class ActionEffect_DamageEntry
     {
+        public Guid Target { get; set; }
         public DamageType DamageType { get; set; }
         public float BaseDamage { get; set; }
         public float DamageMultiplier { get; set; }
+        public string? Note { get; set; }
     }
 
-    public class ActionEffect_Condition
+    public class ActionEffect_Condition : ActionEffect
     {
         public Condition Condition { get; set; }
-        public float BaseDamage { get; set; }
-        public float DamageMultiplier { get; set; }
+        public Guid[] Targets { get; set; }
+    }
+
+    public class ActionEffect_TemporaryHP : ActionEffect
+    {
+        public float TemporaryHPAmount { get; set; }
+        public Guid[] Targets { get; set; }
+    }
+
+    public class ActionEffect_Heal : ActionEffect
+    {
+        public float HealAmount { get; set; }
+        public Guid[] Targets { get; set; }
+    }
+
+    public class ActionEffect_Buff : ActionEffect
+    {
+        public Guid[] Targets { get; set; }
     }
 }
