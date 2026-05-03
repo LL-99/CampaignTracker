@@ -8,8 +8,8 @@
 
 <PageTitle>Campaign Tracking</PageTitle>
 
-<MudStack Spacing="4">
-	<MudGrid Spacing="2">
+<MudStack Spacing="4" Class="home-page">
+	<MudGrid Spacing="2" Class="home-page-header">
 		<MudItem xs="12" md="8">
 			<MudStack Spacing="1">
 				<MudText Typo="Typo.h4" HtmlTag="h1">Campaign Dashboard</MudText>
@@ -20,11 +20,154 @@
 		</MudItem>
 	</MudGrid>
 
-	<MudTabs>
-		<MudTabPanel Text="Stats">
-			<MudGrid Spacing="2">
-				<MudItem xs="12" md="4" Class="d-flex justify-end">
+	<MudTabs Class="home-tabs" TabPanelsClass="home-tabs-panels" Style="max-height: 100%;">
+		<MudTabPanel Text="Stats" PanelClass="home-tab-panel">
+			<MudStack Spacing="3" Class="home-panel-scroll">
+				<MudGrid Spacing="2">
+					<MudItem xs="12" Class="d-flex justify-end">
+						<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
+							<MudButton Variant="Variant.Text"
+									   Color="Color.Default"
+									   Size="Size.Small"
+									   OnClick="ExportButtonClicked"
+									   Disabled="@(DataService.Campaign is null)">
+								Export
+							</MudButton>
+							<MudButton Variant="Variant.Text"
+									   Color="Color.Default"
+									   Size="Size.Small"
+									   OnClick="ImportButtonClicked">
+								Import
+							</MudButton>
+							<MudButton Variant="Variant.Outlined"
+									   Color="Color.Primary"
+									   Size="Size.Small"
+									   StartIcon="@Icons.Material.Filled.Add"
+									   OnClick="AddSessionButtonClicked"
+									   Disabled="@(DataService.Campaign is null)">
+								Add Session
+							</MudButton>
+							<MudButton Variant="Variant.Filled"
+									   Color="Color.Primary"
+									   Size="Size.Small"
+									   StartIcon="@Icons.Material.Filled.Add"
+									   OnClick="AddCombatButtonClicked"
+									   Disabled="@(DataService.Campaign is null)">
+								Add Combat
+							</MudButton>
+						</MudStack>
+					</MudItem>
+				</MudGrid>
+
+				<MudGrid Spacing="3">
+					<MudItem xs="12" sm="6" md="3">
+						<MudPaper Elevation="1" Class="pa-4">
+							<MudText Typo="Typo.overline">Sessions</MudText>
+							<MudText Typo="Typo.h4">@(DataService.Campaign?.Sessions.Count ?? 0)</MudText>
+						</MudPaper>
+					</MudItem>
+					<MudItem xs="12" sm="6" md="3">
+						<MudPaper Elevation="1" Class="pa-4">
+							<MudText Typo="Typo.overline">Combats</MudText>
+							<MudText Typo="Typo.h4">@(DataService.Campaign?.Combats.Count ?? 0)</MudText>
+						</MudPaper>
+					</MudItem>
+					<MudItem xs="12" sm="6" md="3">
+						<MudPaper Elevation="1" Class="pa-4">
+							<MudText Typo="Typo.overline">Players</MudText>
+							<MudText Typo="Typo.h4">@(DataService.Campaign?.PlayerCharacters.Count ?? 0)</MudText>
+						</MudPaper>
+					</MudItem>
+					<MudItem xs="12" sm="6" md="3">
+						<MudPaper Elevation="1" Class="pa-4">
+							<MudText Typo="Typo.overline">NPCs</MudText>
+							<MudText Typo="Typo.h4">@(DataService.Campaign?.Npcs.Count ?? 0)</MudText>
+						</MudPaper>
+					</MudItem>
+					<MudItem xs="12" sm="6" md="3">
+						<MudPaper Elevation="1" Class="pa-4">
+							<MudText Typo="Typo.overline">Enemies</MudText>
+							<MudText Typo="Typo.h4">@(DataService.Campaign?.Enemies.Count ?? 0)</MudText>
+						</MudPaper>
+					</MudItem>
+				</MudGrid>
+			</MudStack>
+		</MudTabPanel>
+		<MudTabPanel Text="Content" PanelClass="home-tab-panel">
+			<MudGrid Spacing="2" Class="home-content-grid">
+				<MudItem xs="12" md="3" Class="home-content-column">
+					<MudPaper Elevation="1" Class="home-scroll-pane">
+						<MudList T="CampaignElement">
+							@if (DataService.Campaign != null)
+							{
+								var sortedSessions = DataService.Campaign.Sessions.OrderBy(session => session.DateUtc).ToList();
+
+								for (int i = 0; i < sortedSessions.Count; i++)
+								{
+									var session = sortedSessions[i];
+									<MudListItem Text=@($"Session {i + 1}: {session.Name}")
+												 Value="@(CampaignElement.FromSession(session))"
+												 ExpandedChanged="@(_ => SessionClicked(session))"
+												 OnClick="@(() => SessionClicked(session))">
+										<NestedList>
+											@if (session.Combats.Count > 0)
+											{
+												var combats = session.Combats.OrderBy(combat => combat.Name).ToList();
+
+												for (int j = 0; j < combats.Count; j++)
+												{
+													var combat = combats[j];
+
+													<div @onclick:stopPropagation="true">
+														<MudListItem Text=@(string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {j + 1}" : combat.Name)
+																	 Value="@(CampaignElement.FromCombat(combat))"
+																	 OnClick="@(() => CombatClicked(combat))" />
+													</div>
+												}
+											}
+										</NestedList>
+									</MudListItem>
+								}
+							}
+						</MudList>
+					</MudPaper>
+				</MudItem>
+
+				<MudItem xs="12" md="9" Class="home-content-column">
+					<MudPaper Elevation="1" Class="pa-3 home-scroll-pane">
+						<MudText>Latest selection: @LatestSelText</MudText>
+
+						@if (LatestSel != null)
+						{
+							if (LatestSel.IsSession)
+							{
+								<SessionDisplay Session=@LatestSel.Session />
+							}
+							else if (LatestSel.Combat is not null)
+							{
+								<CombatDisplay Combat="@LatestSel.Combat" />
+							}
+						}
+					</MudPaper>
+				</MudItem>
+			</MudGrid>
+		</MudTabPanel>
+
+		<MudTabPanel Text="Campaign Config" PanelClass="home-tab-panel">
+			@if (DataService.Campaign is not null)
+			{
+				<MudPaper Elevation="1" Class="pa-3 home-fill-container">
+					<MudText Typo="Typo.h5" Class="mb-2">Campaign Config</MudText>
+					<CampaignDisplay Campaign="DataService.Campaign" />
+				</MudPaper>
+			}
+		</MudTabPanel>
+
+		<MudTabPanel Text="Data Transfer" PanelClass="home-tab-panel">
+			<MudPaper Elevation="1" Class="home-fill-container">
+				<MudToolBar Dense="true">
 					<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
+						<MudText Typo="Typo.h6">Campaign Data</MudText>
 						<MudButton Variant="Variant.Text"
 								   Color="Color.Default"
 								   Size="Size.Small"
@@ -38,130 +181,7 @@
 								   OnClick="ImportButtonClicked">
 							Import
 						</MudButton>
-						<MudButton Variant="Variant.Outlined"
-								   Color="Color.Primary"
-								   Size="Size.Small"
-								   StartIcon="@Icons.Material.Filled.Add"
-								   OnClick="AddSessionButtonClicked"
-								   Disabled="@(DataService.Campaign is null)">
-							Add Session
-						</MudButton>
-						<MudButton Variant="Variant.Filled"
-								   Color="Color.Primary"
-								   Size="Size.Small"
-								   StartIcon="@Icons.Material.Filled.Add"
-								   OnClick="AddCombatButtonClicked"
-								   Disabled="@(DataService.Campaign is null)">
-							Add Combat
-						</MudButton>
 					</MudStack>
-				</MudItem>
-			</MudGrid>
-
-			<MudGrid Spacing="3">
-				<MudItem xs="12" sm="6" md="3">
-					<MudPaper Elevation="1" Class="pa-4">
-						<MudText Typo="Typo.overline">Sessions</MudText>
-						<MudText Typo="Typo.h4">@(DataService.Campaign?.Sessions.Count ?? 0)</MudText>
-					</MudPaper>
-				</MudItem>
-				<MudItem xs="12" sm="6" md="3">
-					<MudPaper Elevation="1" Class="pa-4">
-						<MudText Typo="Typo.overline">Combats</MudText>
-						<MudText Typo="Typo.h4">@(DataService.Campaign?.Combats.Count ?? 0)</MudText>
-					</MudPaper>
-				</MudItem>
-				<MudItem xs="12" sm="6" md="3">
-					<MudPaper Elevation="1" Class="pa-4">
-						<MudText Typo="Typo.overline">Players</MudText>
-						<MudText Typo="Typo.h4">@(DataService.Campaign?.PlayerCharacters.Count ?? 0)</MudText>
-					</MudPaper>
-				</MudItem>
-				<MudItem xs="12" sm="6" md="3">
-					<MudPaper Elevation="1" Class="pa-4">
-						<MudText Typo="Typo.overline">NPCs</MudText>
-						<MudText Typo="Typo.h4">@(DataService.Campaign?.Npcs.Count ?? 0)</MudText>
-					</MudPaper>
-				</MudItem>
-				<MudItem xs="12" sm="6" md="3">
-					<MudPaper Elevation="1" Class="pa-4">
-						<MudText Typo="Typo.overline">Enemies</MudText>
-						<MudText Typo="Typo.h4">@(DataService.Campaign?.Enemies.Count ?? 0)</MudText>
-					</MudPaper>
-				</MudItem>
-			</MudGrid>
-
-		</MudTabPanel>
-		<MudTabPanel Text="Content">
-			<MudGrid>
-				<MudItem xs="3">
-					<MudList T="CampaignElement">
-						@if (DataService.Campaign != null)
-						{
-							var sortedSessions = DataService.Campaign.Sessions.OrderBy(session => session.DateUtc).ToList();
-
-							for (int i = 0; i < sortedSessions.Count; i++)
-							{
-								var session = sortedSessions[i];
-								<MudListItem Text=@($"Session {i + 1}: {session.Name}")
-											 Value="@(CampaignElement.FromSession(session))"
-											 ExpandedChanged="@(_ => SessionClicked(session))"
-											 OnClick="@(() => SessionClicked(session))">
-									<NestedList>
-										@if (session.Combats.Count > 0)
-										{
-											var combats = session.Combats.OrderBy(combat => combat.Name).ToList();
-
-											for (int j = 0; j < combats.Count; j++)
-											{
-												var combat = combats[j];
-
-												<div @onclick:stopPropagation="true">
-													<MudListItem Text=@(string.IsNullOrWhiteSpace(combat.Name) ? $"Combat {j + 1}" : combat.Name)
-																 Value="@(CampaignElement.FromCombat(combat))"
-																 OnClick="@(() => CombatClicked(combat))" />
-												</div>
-											}
-										}
-									</NestedList>
-								</MudListItem>
-							}
-						}
-					</MudList>
-				</MudItem>
-
-				<MudItem xs="9">
-					<MudText>Latest selection: @LatestSelText</MudText>
-
-					@if (LatestSel != null)
-					{
-						if (LatestSel.IsSession)
-						{
-							<SessionDisplay Session=@LatestSel.Session />
-						}
-						else if (LatestSel.Combat is not null)
-						{
-							<CombatDisplay Combat="@LatestSel.Combat" />
-						}
-					}
-				</MudItem>
-			</MudGrid>
-		</MudTabPanel>
-
-		<MudTabPanel Text="Campaign Config">
-			@if (DataService.Campaign is not null)
-			{
-				<MudPaper Elevation="1" Class="pa-3">
-					<MudText Typo="Typo.h5" Class="mb-2">Campaign Config</MudText>
-					<CampaignDisplay Campaign="DataService.Campaign" />
-				</MudPaper>
-			}
-		</MudTabPanel>
-
-		<MudTabPanel Text="Data Transfer">
-			<MudPaper Elevation="1">
-				<MudToolBar Dense="true">
-					<MudText Typo="Typo.h6">Campaign Data</MudText>
 					<MudSpacer />
 					<MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
 						JSON Preview

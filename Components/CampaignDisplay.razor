@@ -1,9 +1,9 @@
 ﻿@using CampaignTracker.Model.Creatures
 @using CampaignTracker.Model.Structure
 
-<MudTabs Elevation="1" Rounded="true">
-	<MudTabPanel Text="Player Characters">
-		<MudStack Spacing="3">
+<MudTabs Elevation="1" Rounded="true" Class="nested-tabs" TabPanelsClass="nested-tab-panels" Style="max-height: 100%;">
+	<MudTabPanel Text="Player Characters" PanelClass="nested-tab-panel">
+		<MudStack Spacing="3" Class="home-panel-scroll">
 			<MudButton Variant="Variant.Filled"
 					   Color="Color.Primary"
 					   Size="Size.Small"
@@ -49,11 +49,11 @@
 		</MudStack>
 	</MudTabPanel>
 
-	<MudTabPanel Text="NPCs">
+	<MudTabPanel Text="NPCs" PanelClass="nested-tab-panel">
 		@StaticCreaturePanel(Campaign.Npcs, AddNpc, Campaign.RemoveNpc, "Add NPC")
 	</MudTabPanel>
 
-	<MudTabPanel Text="Enemies">
+	<MudTabPanel Text="Enemies" PanelClass="nested-tab-panel">
 		@StaticCreaturePanel(Campaign.Enemies, AddEnemy, Campaign.RemoveEnemy, "Add Enemy")
 	</MudTabPanel>
 </MudTabs>
@@ -110,7 +110,7 @@
 		IReadOnlyCollection<StaticCreature> creatures,
 		Action addCreature,
 		Action<StaticCreature> removeCreature,
-		string addButtonText) => @<MudStack Spacing="3">
+		string addButtonText) => @<MudStack Spacing="3" Class="home-panel-scroll">
 		<MudButton Variant="Variant.Filled"
 				   Color="Color.Primary"
 				   Size="Size.Small"
