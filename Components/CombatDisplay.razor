@@ -8,10 +8,9 @@
 	<MudTextField @bind-Value="Combat.Name" Label="Combat Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
 
 	<MudTabs Elevation="1" Rounded="true" Class="nested-tabs" TabPanelsClass="nested-tab-panels" Style="height: 100%; max-height: 100%;">
-		<MudTabPanel Text="Activity Log" PanelClass="nested-tab-panel">
+		<MudTabPanel Text="Action Log" PanelClass="nested-tab-panel">
 			<MudStack Class="home-panel-scroll">
-				@* <CombatActionLog Combat="@Combat" /> *@
-				<CombatActionLog />
+				<CombatActionLog Combat="@Combat" />
 			</MudStack>
 		</MudTabPanel>
 

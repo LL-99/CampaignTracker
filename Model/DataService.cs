@@ -120,7 +120,8 @@ namespace CampaignTracker.Model
             Combat(campaign, "Blackgate Breach", [(session5, 1)], [mira, owen, seraphine, thalia], [captainIlyra], [hobgoblinShield, obsidianMyrmidon]);
             Combat(campaign, "Siege of Blackgate", [(session5, 2), (session6, 1)], [mira, owen, thalia], [captainIlyra], [obsidianMyrmidon, boneWarden]);
             Combat(campaign, "Rat Flooded Tunnels", [(session6, 2)], [mira, seraphine, thalia], [archivistNera], [plagueRatSwarm, plagueRatSwarm]);
-            Combat(campaign, "Cinder Heart Guardian", [(session6, 3)], [mira, owen, seraphine, thalia], [archivistNera], [emberDrake, boneWarden]);
+            var cinderHeartGuardian = Combat(campaign, "Cinder Heart Guardian", [(session6, 3)], [mira, owen, seraphine, thalia], [archivistNera], [emberDrake, boneWarden]);
+            AddExampleActionLogEntries(cinderHeartGuardian, mira, owen, seraphine, thalia, archivistNera, emberDrake, boneWarden);
 
             return campaign;
         }
@@ -201,6 +202,169 @@ namespace CampaignTracker.Model
             }
 
             return combat;
+        }
+
+        private static void AddExampleActionLogEntries(
+            Combat combat,
+            PlayerCharacter mira,
+            PlayerCharacter owen,
+            PlayerCharacter seraphine,
+            PlayerCharacter thalia,
+            StaticCreature archivistNera,
+            StaticCreature emberDrake,
+            StaticCreature boneWarden)
+        {
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [emberDrake.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "Ember Drake exhales fire.",
+                    DamageInstances =
+                    [
+                        new() { Target = mira.GUID, DamageType = DamageType.Fire, BaseDamage = 22, DamageMultiplier = 0.5f, Note = "Successful save" },
+                        new() { Target = seraphine.GUID, DamageType = DamageType.Fire, BaseDamage = 22, DamageMultiplier = 1 },
+                        new() { Target = thalia.GUID, DamageType = DamageType.Fire, BaseDamage = 22, DamageMultiplier = 0.5f, Note = "Successful save" }
+                    ]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [thalia.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "Thalia lands a smite-backed longsword strike.",
+                    DamageInstances =
+                    [
+                        new() { Target = boneWarden.GUID, DamageType = DamageType.Slashing, BaseDamage = 10, DamageMultiplier = 1 },
+                        new() { Target = boneWarden.GUID, DamageType = DamageType.Radiant, BaseDamage = 13, DamageMultiplier = 1 }
+                    ]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [seraphine.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "Ice knife hits the Ember Drake and bursts over both guardians.",
+                    DamageInstances =
+                    [
+                        new() { Target = emberDrake.GUID, DamageType = DamageType.Piercing, BaseDamage = 5, DamageMultiplier = 1 },
+                        new() { Target = emberDrake.GUID, DamageType = DamageType.Cold, BaseDamage = 11, DamageMultiplier = 0.5f },
+                        new() { Target = boneWarden.GUID, DamageType = DamageType.Cold, BaseDamage = 11, DamageMultiplier = 1 }
+                    ]
+                },
+                new ActionEffect_Condition
+                {
+                    Type = EffectType.Condition,
+                    Description = "Bone Warden is knocked prone by the icy blast.",
+                    Condition = Condition.Prone,
+                    Targets = [boneWarden.GUID]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [owen.GUID],
+                new ActionEffect_Heal
+                {
+                    Type = EffectType.Heal,
+                    Description = "Owen restores Mira with healing word.",
+                    HealAmount = 10,
+                    Targets = [mira.GUID]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [boneWarden.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "Bone Warden sweeps its glaive through the front line.",
+                    DamageInstances =
+                    [
+                        new() { Target = thalia.GUID, DamageType = DamageType.Slashing, BaseDamage = 12, DamageMultiplier = 1 },
+                        new() { Target = owen.GUID, DamageType = DamageType.Slashing, BaseDamage = 12, DamageMultiplier = 1 }
+                    ]
+                },
+                new ActionEffect_Condition
+                {
+                    Type = EffectType.Condition,
+                    Description = "Owen fails the dread aura save.",
+                    Condition = Condition.Frightened,
+                    Targets = [owen.GUID]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [archivistNera.GUID],
+                new ActionEffect_TemporaryHP
+                {
+                    Type = EffectType.TemporaryHP,
+                    Description = "Archivist Nera reinforces the party with a warding chant.",
+                    TemporaryHPAmount = 6,
+                    Targets = [mira.GUID, owen.GUID, seraphine.GUID, thalia.GUID]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [mira.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "Mira marks the Ember Drake and fires two arrows.",
+                    DamageInstances =
+                    [
+                        new() { Target = emberDrake.GUID, DamageType = DamageType.Piercing, BaseDamage = 9, DamageMultiplier = 1 },
+                        new() { Target = emberDrake.GUID, DamageType = DamageType.Piercing, BaseDamage = 8, DamageMultiplier = 1 }
+                    ]
+                },
+                new ActionEffect_Buff
+                {
+                    Type = EffectType.Buff,
+                    Description = "Hunter's mark remains on the Ember Drake.",
+                    Targets = [emberDrake.GUID]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [emberDrake.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "The Ember Drake releases a sudden fire burst.",
+                    DamageInstances =
+                    [
+                        new() { Target = seraphine.GUID, DamageType = DamageType.Fire, BaseDamage = 10, DamageMultiplier = 0, Note = "Successful save and evasion" },
+                        new() { Target = boneWarden.GUID, DamageType = DamageType.Fire, BaseDamage = 10, DamageMultiplier = 0.5f, Note = "Fire resistance" }
+                    ]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [owen.GUID],
+                new ActionEffect_Damage
+                {
+                    Type = EffectType.Damage,
+                    Description = "Bone Warden succeeds on the sacred flame save.",
+                    DamageInstances =
+                    [
+                        new() { Target = boneWarden.GUID, DamageType = DamageType.Radiant, BaseDamage = 14, DamageMultiplier = 0, Note = "Successful save" }
+                    ]
+                });
+
+            combat.ActionLog.AddEntry(
+                combat.GUID,
+                [thalia.GUID],
+                new ActionEffect_Heal
+                {
+                    Type = EffectType.Heal,
+                    Description = "Thalia uses second wind.",
+                    HealAmount = 11,
+                    Targets = [thalia.GUID]
+                });
         }
     }
 }

@@ -15,8 +15,8 @@ namespace CampaignTracker.Model.Combats
     public class ActionLogEntry 
     {
         public Guid Combat { get; set; }
-        public Guid[] Actors { get; set; }
-        public ActionEffect[] Effects { get; set; }    
+        public Guid[] Actors { get; set; } = [];
+        public ActionEffect[] Effects { get; set; } = [];
     }
 
     public class ActionEffect
@@ -27,7 +27,7 @@ namespace CampaignTracker.Model.Combats
 
     public class ActionEffect_Damage : ActionEffect
     {
-        public ActionEffect_DamageEntry[] DamageInstances { get; set; }
+        public ActionEffect_DamageEntry[] DamageInstances { get; set; } = [];
     }
 
     public class ActionEffect_DamageEntry
@@ -42,23 +42,23 @@ namespace CampaignTracker.Model.Combats
     public class ActionEffect_Condition : ActionEffect
     {
         public Condition Condition { get; set; }
-        public Guid[] Targets { get; set; }
+        public Guid[] Targets { get; set; } = [];
     }
 
     public class ActionEffect_TemporaryHP : ActionEffect
     {
         public float TemporaryHPAmount { get; set; }
-        public Guid[] Targets { get; set; }
+        public Guid[] Targets { get; set; } = [];
     }
 
     public class ActionEffect_Heal : ActionEffect
     {
         public float HealAmount { get; set; }
-        public Guid[] Targets { get; set; }
+        public Guid[] Targets { get; set; } = [];
     }
 
     public class ActionEffect_Buff : ActionEffect
     {
-        public Guid[] Targets { get; set; }
+        public Guid[] Targets { get; set; } = [];
     }
 }
