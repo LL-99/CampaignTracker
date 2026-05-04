@@ -258,6 +258,95 @@ code {
     row-gap: 0.25rem;
 }
 
+.combat-action-log {
+    min-height: 0;
+    height: 100%;
+}
+
+.combat-action-log-entries {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.combat-action-log-add-row {
+    flex: 0 0 auto;
+    align-items: center;
+    padding-top: 0.75rem;
+}
+
+.action-log-popup-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.action-log-popup {
+    width: min(58rem, 100%);
+    max-height: min(44rem, calc(100dvh - 2rem));
+    display: flex;
+    overflow: hidden;
+}
+
+.action-log-popup-content {
+    width: 100%;
+    min-height: 0;
+}
+
+.action-log-popup-body {
+    flex: 1 1 auto;
+    min-height: 18rem;
+    overflow: auto;
+    padding-right: 0.25rem;
+}
+
+.action-log-popup-footer {
+    flex: 0 0 auto;
+}
+
+.action-log-creature-buttons,
+.action-log-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.5rem;
+}
+
+.action-log-creature-buttons .mud-button,
+.action-log-choice-grid .mud-button,
+.action-log-type-button {
+    min-height: 2.5rem;
+    text-transform: none;
+    white-space: normal;
+}
+
+.action-log-effect-row {
+    border-radius: 6px;
+}
+
+.action-log-effect-summary {
+    min-width: 0;
+}
+
+.action-log-multiplier-buttons {
+    height: 100%;
+    align-items: center;
+}
+
+.action-log-multiplier-buttons .mud-button {
+    flex: 1 1 0;
+    min-width: 0;
+    text-transform: none;
+}
+
+.action-log-amount-input {
+    max-width: 12rem;
+}
+
 @media (min-width: 960px) {
     .home-content-column {
         height: 100%;

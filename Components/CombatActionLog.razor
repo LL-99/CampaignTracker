@@ -1,102 +1,692 @@
 ﻿@using CampaignTracker.Model.Combats
 @using CampaignTracker.Model.Creatures
 
+@inject IDialogService DialogService
+
 @if (Combat == null)
 {
 	<MudText>No combat selected!</MudText>
 }
 else
 {
-	<MudStack Class="home-panel-scroll">
-
-		@foreach (var entry in Combat.ActionLog.Entries)
-		{
-			List<Creature> actors = [];
-
-			foreach (var actorGuid in entry.Actors)
+	<MudStack Class="combat-action-log">
+		<MudStack Spacing="2" Class="combat-action-log-entries">
+			@foreach (var entry in Combat.ActionLog.Entries)
 			{
-				if (GetCreatureFromGUID(actorGuid) is { } actor)
-				{
-					actors.Add(actor);
-				}
+				<div class="combat-action-log-entry">
+					@foreach (var actor in GetCreatures(entry.Actors))
+					{
+						<MudChip T="string" Class="ma-0" Size="Size.Small">
+							@actor.Name
+						</MudChip>
+					}
+
+					@foreach (var effect in entry.Effects)
+					{
+						<span>@FormatEffectSummary(effect)</span>
+					}
+				</div>
 			}
 
-			<div class="combat-action-log-entry">
-				@foreach (var a in actors)
-				{
-					<MudChip T="string" Class="ma-0">
-						@a.Name
-					</MudChip>
-				}
-			
-				@foreach (var e in entry.Effects)
-				{
-					switch (e.Type)
-					{
-						case EffectType.Damage:
-							var asDamageEntry = (ActionEffect_Damage)e;
+			@if (!Combat.ActionLog.Entries.Any())
+			{
+				<MudText Typo="Typo.body2" Color="Color.Secondary">No action log entries yet.</MudText>
+			}
+		</MudStack>
 
-							var groupedDamageInstances = asDamageEntry.DamageInstances
-								.Select(x => new
-								{
-									TargetName = GetCreatureFromGUID(x.Target)?.Name ?? "Unknown creature",
-									ActualDamage = (int)(x.BaseDamage * x.DamageMultiplier), /* TODO add damage resist/vuln */
-									x.DamageType
-								})
-								.GroupBy(x => new { x.ActualDamage, x.DamageType })
-								.ToList();
+		<MudDivider />
 
-							<span>dealt</span>
-
-							for (int i = 0; i < groupedDamageInstances.Count; i++)
-							{
-								var group = groupedDamageInstances[i].ToList();
-								<span>@groupedDamageInstances[i].Key.ActualDamage @FormatDamageType(groupedDamageInstances[i].Key.DamageType) damage to</span>
-
-								foreach (var dmgInst in group)
-								{
-									<MudChip T="string" Class="ma-0">
-										@dmgInst.TargetName
-									</MudChip>
-								}
-
-									if (i == groupedDamageInstances.Count - 2)
-								{
-									<span>and</span>
-								}
-								else if (i < groupedDamageInstances.Count - 2)
-								{
-									<span>,</span>
-								}
-
-							}
-							break;
-					}
-				}
-			</div>
-		}
+		<MudStack Row="true" Class="combat-action-log-add-row">
+			<MudButton Variant="Variant.Filled"
+					   Color="Color.Primary"
+					   StartIcon="@Icons.Material.Filled.Add"
+					   OnClick="OpenPopup">
+				Add Log Entry
+			</MudButton>
+			@if (HasWipEntry)
+			{
+				<MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">
+					Draft in progress
+				</MudChip>
+			}
+		</MudStack>
 	</MudStack>
-}
 
+	@if (_popupOpen)
+	{
+		<div class="action-log-popup-backdrop">
+			<MudPaper Elevation="8" Class="action-log-popup pa-4">
+				<MudStack Spacing="3" Class="action-log-popup-content">
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+						<MudText Typo="Typo.h6">@PopupTitle</MudText>
+						<MudSpacer />
+						<MudIconButton Icon="@Icons.Material.Filled.Close"
+									   Size="Size.Small"
+									   OnClick="ClosePopup" />
+					</MudStack>
+
+					<MudText Typo="Typo.caption" Color="Color.Secondary">@PopupStepText</MudText>
+
+					<div class="action-log-popup-body">
+						@switch (_page)
+						{
+							case ActionLogPopupPage.Actors:
+								@RenderActorPage()
+								break;
+							case ActionLogPopupPage.EffectsOverview:
+								@RenderEffectsOverviewPage()
+								break;
+							case ActionLogPopupPage.EffectType:
+								@RenderEffectTypePage()
+								break;
+							case ActionLogPopupPage.Damage:
+								@RenderDamagePage()
+								break;
+							case ActionLogPopupPage.Condition:
+								@RenderConditionPage()
+								break;
+							case ActionLogPopupPage.TemporaryHP:
+								@RenderTemporaryHpPage()
+								break;
+							case ActionLogPopupPage.Heal:
+								@RenderHealPage()
+								break;
+							case ActionLogPopupPage.Buff:
+								@RenderBuffPage()
+								break;
+						}
+					</div>
+
+					<MudDivider />
+
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="action-log-popup-footer">
+						@if (_page == ActionLogPopupPage.EffectsOverview)
+						{
+							<MudButton Variant="Variant.Text"
+									   Color="Color.Error"
+									   StartIcon="@Icons.Material.Filled.Delete"
+									   Disabled="@(!HasWipEntry)"
+									   OnClick="DiscardButtonClicked">
+								Discard
+							</MudButton>
+						}
+
+						<MudSpacer />
+
+						<MudButton Variant="Variant.Text"
+								   Color="Color.Default"
+								   OnClick="PreviousButtonClicked"
+								   Disabled="@(!CanGoPrevious)">
+							Previous
+						</MudButton>
+
+						@if (_page == ActionLogPopupPage.EffectsOverview)
+						{
+							<MudButton Variant="Variant.Outlined"
+									   Color="Color.Primary"
+									   StartIcon="@Icons.Material.Filled.Add"
+									   OnClick="StartAddingEffect">
+								Add Effect
+							</MudButton>
+							@if (_wipEffects.Count > 0)
+							{
+								<MudButton Variant="Variant.Filled"
+										   Color="Color.Primary"
+										   StartIcon="@Icons.Material.Filled.Save"
+										   OnClick="SaveEntry">
+									Save
+								</MudButton>
+							}
+						}
+						else if (IsEffectDetailPage)
+						{
+							<MudButton Variant="Variant.Filled"
+									   Color="Color.Primary"
+									   StartIcon="@Icons.Material.Filled.Check"
+									   Disabled="@(!CanSaveDraftEffect)"
+									   OnClick="SaveDraftEffect">
+								@(_editingEffectIndex is null ? "Add" : "Update")
+							</MudButton>
+						}
+						else
+						{
+							<MudButton Variant="Variant.Filled"
+									   Color="Color.Primary"
+									   OnClick="NextButtonClicked"
+									   Disabled="@(!CanGoNext)">
+								Next
+							</MudButton>
+						}
+					</MudStack>
+				</MudStack>
+			</MudPaper>
+		</div>
+	}
+}
 
 @code {
 	[Parameter]
 	public Combat? Combat { get; set; }
 
+	private Guid? _activeCombatGuid;
+	private bool _popupOpen;
+	private ActionLogPopupPage _page = ActionLogPopupPage.Actors;
+	private readonly HashSet<Guid> _selectedActorGuids = [];
+	private readonly List<ActionEffect> _wipEffects = [];
+	private EffectDraft _effectDraft = new();
+	private int? _editingEffectIndex;
 
-	private Creature? GetCreatureFromGUID(Guid guid)
+	private bool HasWipEntry => _selectedActorGuids.Count > 0 || _wipEffects.Count > 0 || _editingEffectIndex is not null;
+
+	private bool IsEffectDetailPage => _page is ActionLogPopupPage.Damage
+		or ActionLogPopupPage.Condition
+		or ActionLogPopupPage.TemporaryHP
+		or ActionLogPopupPage.Heal
+		or ActionLogPopupPage.Buff;
+
+	private bool CanGoPrevious => _page != ActionLogPopupPage.Actors;
+
+	private bool CanGoNext => _page switch
 	{
-		if (Combat == null)
-			return null;
+		ActionLogPopupPage.Actors => _selectedActorGuids.Count > 0,
+		ActionLogPopupPage.EffectType => true,
+		_ => false
+	};
 
-		if (Combat.PlayerCharacterGUIDs.Contains(guid))
-			return Combat.PlayerCharacters.First(x => x.GUID == guid);
-		if (Combat.NpcGUIDs.Contains(guid))
-			return Combat.Npcs.First(x => x.GUID == guid);
-		if (Combat.EnemyGUIDs.Contains(guid))
-			return Combat.Enemies.First(x => x.GUID == guid);
-		
-		return null;
+	private bool CanSaveDraftEffect => _effectDraft.Targets.Count > 0
+		&& (_page switch
+		{
+			ActionLogPopupPage.Damage => _effectDraft.Amount > 0,
+			ActionLogPopupPage.Heal => _effectDraft.Amount > 0,
+			ActionLogPopupPage.TemporaryHP => _effectDraft.Amount > 0,
+			ActionLogPopupPage.Condition => true,
+			ActionLogPopupPage.Buff => true,
+			_ => false
+		});
+
+	private string PopupTitle => _page switch
+	{
+		ActionLogPopupPage.Actors => "Actors",
+		ActionLogPopupPage.EffectsOverview => "Effects",
+		ActionLogPopupPage.EffectType => "Effect Type",
+		ActionLogPopupPage.Damage => "Damage",
+		ActionLogPopupPage.Condition => "Condition",
+		ActionLogPopupPage.TemporaryHP => "Temporary HP",
+		ActionLogPopupPage.Heal => "Heal",
+		ActionLogPopupPage.Buff => "Buff",
+		_ => "Action Log Entry"
+	};
+
+	private string PopupStepText => _page switch
+	{
+		ActionLogPopupPage.Actors => "1 / 4",
+		ActionLogPopupPage.EffectsOverview => "2 / 4",
+		ActionLogPopupPage.EffectType => "3 / 4",
+		_ => "4 / 4"
+	};
+
+	protected override void OnParametersSet()
+	{
+		if (Combat?.GUID == _activeCombatGuid)
+		{
+			return;
+		}
+
+		_activeCombatGuid = Combat?.GUID;
+		ResetWipEntry();
+		_popupOpen = false;
+		_page = ActionLogPopupPage.Actors;
+	}
+
+	private RenderFragment RenderActorPage() => @<MudStack Spacing="3">
+		<MudText Typo="Typo.body2" Color="Color.Secondary">
+			Choose every creature that acted. Buttons stay selected until you change combat or discard the draft.
+		</MudText>
+		@RenderCreatureButtonGroup("Players", Combat?.PlayerCharacters ?? [], _selectedActorGuids)
+		@RenderCreatureButtonGroup("NPCs", Combat?.Npcs ?? [], _selectedActorGuids)
+		@RenderCreatureButtonGroup("Enemies", Combat?.Enemies ?? [], _selectedActorGuids)
+	</MudStack>;
+
+	private RenderFragment RenderEffectsOverviewPage() => @<MudStack Spacing="2">
+		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+			<MudText Typo="Typo.subtitle2">Actors</MudText>
+			@foreach (var actor in GetCreatures(_selectedActorGuids))
+			{
+				<MudChip T="string" Size="Size.Small" Class="ma-0">@actor.Name</MudChip>
+			}
+		</MudStack>
+
+		@if (_wipEffects.Count == 0)
+		{
+			<MudText Typo="Typo.body2" Color="Color.Secondary">
+				Add at least one effect to enable Save.
+			</MudText>
+		}
+		else
+		{
+			@for (int i = 0; i < _wipEffects.Count; i++)
+			{
+				var index = i;
+				var effect = _wipEffects[i];
+
+				<MudPaper Outlined="true" Class="action-log-effect-row pa-2">
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+						<MudText Typo="Typo.body2" Class="action-log-effect-summary">
+							@FormatEffectSummary(effect)
+						</MudText>
+						<MudSpacer />
+						<MudIconButton Icon="@Icons.Material.Filled.Edit"
+									   Size="Size.Small"
+									   OnClick="@(() => EditEffect(index))" />
+						<MudIconButton Icon="@Icons.Material.Filled.Delete"
+									   Size="Size.Small"
+									   Color="Color.Error"
+									   OnClick="@(() => RemoveEffect(index))" />
+					</MudStack>
+				</MudPaper>
+			}
+		}
+	</MudStack>;
+
+	private RenderFragment RenderEffectTypePage() => @<MudGrid Spacing="2">
+		@foreach (var effectType in Enum.GetValues<EffectType>())
+		{
+			<MudItem xs="6" sm="4">
+				<MudButton Variant="@(_effectDraft.Type == effectType ? Variant.Filled : Variant.Outlined)"
+						   Color="@(_effectDraft.Type == effectType ? Color.Primary : Color.Default)"
+						   FullWidth="true"
+						   Class="action-log-type-button"
+						   OnClick="@(() => SelectEffectType(effectType, true))">
+					@FormatEffectType(effectType)
+				</MudButton>
+			</MudItem>
+		}
+	</MudGrid>;
+
+	private RenderFragment RenderDamagePage() => @<MudStack Spacing="3">
+		<MudGrid Spacing="2">
+			<MudItem xs="6" sm="4">
+				<MudNumericField T="float"
+								 @bind-Value="_effectDraft.Amount"
+								 Label="Damage"
+								 Min="0"
+								 Variant="Variant.Outlined"
+								 Margin="Margin.Dense"
+								 Immediate="true" />
+			</MudItem>
+			<MudItem xs="6" sm="4">
+				<MudSelect T="DamageType"
+						   @bind-Value="_effectDraft.DamageType"
+						   Label="Type"
+						   Variant="Variant.Outlined"
+						   Margin="Margin.Dense">
+					@foreach (var damageType in Enum.GetValues<DamageType>())
+					{
+						<MudSelectItem T="DamageType" Value="@damageType">@damageType</MudSelectItem>
+					}
+				</MudSelect>
+			</MudItem>
+			<MudItem xs="12" sm="4">
+				<MudStack Row="true" Spacing="1" Class="action-log-multiplier-buttons">
+					@RenderMultiplierButton("Half", 0.5f)
+					@RenderMultiplierButton("Normal", 1f)
+					@RenderMultiplierButton("Double", 2f)
+				</MudStack>
+			</MudItem>
+		</MudGrid>
+		@RenderTargetPicker()
+	</MudStack>;
+
+	private RenderFragment RenderConditionPage() => @<MudStack Spacing="3">
+		<MudText Typo="Typo.subtitle2">Condition</MudText>
+		<div class="action-log-choice-grid">
+			@foreach (var condition in Enum.GetValues<Condition>())
+			{
+				<MudButton Variant="@(_effectDraft.Condition == condition ? Variant.Filled : Variant.Outlined)"
+						   Color="@(_effectDraft.Condition == condition ? Color.Primary : Color.Default)"
+						   Size="Size.Small"
+						   OnClick="@(() => _effectDraft.Condition = condition)">
+					@condition
+				</MudButton>
+			}
+		</div>
+		@RenderTargetPicker()
+	</MudStack>;
+
+	private RenderFragment RenderTemporaryHpPage() => @<MudStack Spacing="3">
+		<MudNumericField T="float"
+						 @bind-Value="_effectDraft.Amount"
+						 Label="Temporary HP"
+						 Min="0"
+						 Variant="Variant.Outlined"
+						 Margin="Margin.Dense"
+						 Immediate="true"
+						 Class="action-log-amount-input" />
+		@RenderTargetPicker()
+	</MudStack>;
+
+	private RenderFragment RenderHealPage() => @<MudStack Spacing="3">
+		<MudNumericField T="float"
+						 @bind-Value="_effectDraft.Amount"
+						 Label="Heal"
+						 Min="0"
+						 Variant="Variant.Outlined"
+						 Margin="Margin.Dense"
+						 Immediate="true"
+						 Class="action-log-amount-input" />
+		@RenderTargetPicker()
+	</MudStack>;
+
+	private RenderFragment RenderBuffPage() => @<MudStack Spacing="3">
+		<MudTextField T="string"
+					  @bind-Value="_effectDraft.Description"
+					  Label="Buff note"
+					  Variant="Variant.Outlined"
+					  Margin="Margin.Dense"
+					  Immediate="true" />
+		@RenderTargetPicker()
+	</MudStack>;
+
+	private RenderFragment RenderTargetPicker() => @<MudStack Spacing="3">
+		<MudText Typo="Typo.subtitle2">Targets</MudText>
+		@RenderCreatureButtonGroup("Players", Combat?.PlayerCharacters ?? [], _effectDraft.Targets)
+		@RenderCreatureButtonGroup("NPCs", Combat?.Npcs ?? [], _effectDraft.Targets)
+		@RenderCreatureButtonGroup("Enemies", Combat?.Enemies ?? [], _effectDraft.Targets)
+	</MudStack>;
+
+	private RenderFragment RenderCreatureButtonGroup(string title, IReadOnlyCollection<Creature> creatures, HashSet<Guid> selectedGuids) => @<MudStack Spacing="1">
+		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+			<MudText Typo="Typo.subtitle2">@title</MudText>
+			@if (creatures.Count > 1)
+			{
+				<MudButton Variant="Variant.Text"
+						   Color="Color.Primary"
+						   Size="Size.Small"
+						   OnClick="@(() => SelectAll(creatures, selectedGuids))">
+					All
+				</MudButton>
+				<MudButton Variant="Variant.Text"
+						   Color="Color.Default"
+						   Size="Size.Small"
+						   OnClick="@(() => ClearAll(creatures, selectedGuids))">
+					None
+				</MudButton>
+			}
+		</MudStack>
+		@if (creatures.Count == 0)
+		{
+			<MudText Typo="Typo.body2" Color="Color.Secondary">No @title.ToLowerInvariant()</MudText>
+		}
+		else
+		{
+			<div class="action-log-creature-buttons">
+				@foreach (var creature in creatures.OrderBy(creature => creature.Name))
+				{
+					var selected = selectedGuids.Contains(creature.GUID);
+					<MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)"
+							   Color="@(selected ? Color.Primary : Color.Default)"
+							   Size="Size.Small"
+							   OnClick="@(() => ToggleSelected(creature.GUID, selectedGuids))">
+						@creature.Name
+					</MudButton>
+				}
+			</div>
+		}
+	</MudStack>;
+
+	private RenderFragment RenderMultiplierButton(string label, float multiplier) => @<MudButton Variant="@(Math.Abs(_effectDraft.DamageMultiplier - multiplier) < 0.001f ? Variant.Filled : Variant.Outlined)"
+																							  Color="@(Math.Abs(_effectDraft.DamageMultiplier - multiplier) < 0.001f ? Color.Primary : Color.Default)"
+																							  Size="Size.Small"
+																							  OnClick="@(() => _effectDraft.DamageMultiplier = multiplier)">
+		@label
+	</MudButton>;
+
+	private void OpenPopup()
+	{
+		_popupOpen = true;
+	}
+
+	private void ClosePopup()
+	{
+		_popupOpen = false;
+	}
+
+	private void PreviousButtonClicked()
+	{
+		if (IsEffectDetailPage)
+		{
+			_page = ActionLogPopupPage.EffectType;
+			return;
+		}
+
+		_page = _page switch
+		{
+			ActionLogPopupPage.EffectsOverview => ActionLogPopupPage.Actors,
+			ActionLogPopupPage.EffectType => ActionLogPopupPage.EffectsOverview,
+			_ => _page
+		};
+	}
+
+	private void NextButtonClicked()
+	{
+		_page = _page switch
+		{
+			ActionLogPopupPage.Actors => ActionLogPopupPage.EffectsOverview,
+			ActionLogPopupPage.EffectType => GetDetailPage(_effectDraft.Type),
+			_ => _page
+		};
+	}
+
+	private void StartAddingEffect()
+	{
+		_editingEffectIndex = null;
+		_effectDraft = new EffectDraft();
+		_page = ActionLogPopupPage.EffectType;
+	}
+
+	private void SelectEffectType(EffectType effectType, bool advance)
+	{
+		_effectDraft.Type = effectType;
+
+		if (advance)
+		{
+			_page = GetDetailPage(effectType);
+		}
+	}
+
+	private void EditEffect(int index)
+	{
+		if (index < 0 || index >= _wipEffects.Count)
+		{
+			return;
+		}
+
+		_editingEffectIndex = index;
+		_effectDraft = EffectDraft.FromEffect(_wipEffects[index]);
+		_page = GetDetailPage(_effectDraft.Type);
+	}
+
+	private void RemoveEffect(int index)
+	{
+		if (index >= 0 && index < _wipEffects.Count)
+		{
+			_wipEffects.RemoveAt(index);
+		}
+	}
+
+	private void SaveDraftEffect()
+	{
+		if (!CanSaveDraftEffect)
+		{
+			return;
+		}
+
+		var effect = _effectDraft.ToEffect();
+
+		if (_editingEffectIndex is int index && index >= 0 && index < _wipEffects.Count)
+		{
+			_wipEffects[index] = effect;
+		}
+		else
+		{
+			_wipEffects.Add(effect);
+		}
+
+		_editingEffectIndex = null;
+		_effectDraft = new EffectDraft();
+		_page = ActionLogPopupPage.EffectsOverview;
+	}
+
+	private void SaveEntry()
+	{
+		if (Combat is null || _wipEffects.Count == 0 || _selectedActorGuids.Count == 0)
+		{
+			return;
+		}
+
+		Combat.ActionLog.AddEntry(Combat.GUID, _selectedActorGuids, _wipEffects.ToArray());
+		ResetWipEntry();
+		_popupOpen = false;
+		_page = ActionLogPopupPage.Actors;
+	}
+
+	private async Task DiscardButtonClicked()
+	{
+		if (!HasWipEntry)
+		{
+			return;
+		}
+
+		var shouldDiscard = await DialogService.ShowMessageBoxAsync(
+			"Discard draft?",
+			"This clears the actors and all effects in the current action log draft.",
+			yesText: "Discard",
+			cancelText: "Cancel");
+
+		if (shouldDiscard == true)
+		{
+			ResetWipEntry();
+			_page = ActionLogPopupPage.Actors;
+		}
+	}
+
+	private void ResetWipEntry()
+	{
+		_selectedActorGuids.Clear();
+		_wipEffects.Clear();
+		_effectDraft = new EffectDraft();
+		_editingEffectIndex = null;
+	}
+
+	private void ToggleSelected(Guid guid, HashSet<Guid> selectedGuids)
+	{
+		if (!selectedGuids.Add(guid))
+		{
+			selectedGuids.Remove(guid);
+		}
+	}
+
+	private static void SelectAll(IEnumerable<Creature> creatures, HashSet<Guid> selectedGuids)
+	{
+		foreach (var creature in creatures)
+		{
+			selectedGuids.Add(creature.GUID);
+		}
+	}
+
+	private static void ClearAll(IEnumerable<Creature> creatures, HashSet<Guid> selectedGuids)
+	{
+		foreach (var creature in creatures)
+		{
+			selectedGuids.Remove(creature.GUID);
+		}
+	}
+
+	private IEnumerable<Creature> GetCreatures(IEnumerable<Guid> guids)
+	{
+		var guidSet = guids.ToHashSet();
+
+		return AllCombatCreatures
+			.Where(creature => guidSet.Contains(creature.GUID))
+			.OrderBy(creature => creature.Name);
+	}
+
+	private IEnumerable<Creature> AllCombatCreatures
+	{
+		get
+		{
+			if (Combat is null)
+			{
+				return [];
+			}
+
+			return Combat.PlayerCharacters
+				.Cast<Creature>()
+				.Concat(Combat.Npcs)
+				.Concat(Combat.Enemies);
+		}
+	}
+
+	private Creature? GetCreatureFromGuid(Guid guid)
+	{
+		return AllCombatCreatures.FirstOrDefault(creature => creature.GUID == guid);
+	}
+
+	private string FormatEffectSummary(ActionEffect effect)
+	{
+		return effect switch
+		{
+			ActionEffect_Damage damage => FormatDamageSummary(damage),
+			ActionEffect_Condition condition => $"applied {condition.Condition} to {FormatCreatureList(condition.Targets)}",
+			ActionEffect_TemporaryHP temporaryHp => $"gave {FormatAmount(temporaryHp.TemporaryHPAmount)} temporary HP to {FormatCreatureList(temporaryHp.Targets)}",
+			ActionEffect_Heal heal => $"healed {FormatAmount(heal.HealAmount)} HP on {FormatCreatureList(heal.Targets)}",
+			ActionEffect_Buff buff => string.IsNullOrWhiteSpace(buff.Description)
+				? $"buffed {FormatCreatureList(buff.Targets)}"
+				: $"buffed {FormatCreatureList(buff.Targets)}: {buff.Description}",
+			_ => effect.Description ?? effect.Type.ToString()
+		};
+	}
+
+	private string FormatDamageSummary(ActionEffect_Damage damage)
+	{
+		var groupedDamageInstances = damage.DamageInstances
+			.Select(instance => new
+			{
+				TargetName = GetCreatureFromGuid(instance.Target)?.Name ?? "Unknown creature",
+				ActualDamage = instance.BaseDamage * instance.DamageMultiplier,
+				instance.DamageType
+			})
+			.GroupBy(instance => new { instance.ActualDamage, instance.DamageType })
+			.ToList();
+
+		if (groupedDamageInstances.Count == 0)
+		{
+			return "dealt damage";
+		}
+
+		var parts = groupedDamageInstances
+			.Select(group => $"dealt {FormatAmount(group.Key.ActualDamage)} {FormatDamageType(group.Key.DamageType)} damage to {string.Join(", ", group.Select(instance => instance.TargetName).Order())}");
+
+		return string.Join("; ", parts);
+	}
+
+	private string FormatCreatureList(IEnumerable<Guid> targets)
+	{
+		var names = targets
+			.Select(guid => GetCreatureFromGuid(guid)?.Name ?? "Unknown creature")
+			.Order()
+			.ToList();
+
+		return names.Count == 0
+			? "no targets"
+			: string.Join(", ", names);
+	}
+
+	private static string FormatAmount(float amount)
+	{
+		return Math.Abs(amount % 1) < 0.001f
+			? ((int)amount).ToString()
+			: amount.ToString("0.##");
 	}
 
 	private static string FormatDamageType(DamageType damageType)
@@ -104,4 +694,136 @@ else
 		return damageType.ToString().ToLowerInvariant();
 	}
 
+	private static string FormatEffectType(EffectType effectType)
+	{
+		return effectType == EffectType.TemporaryHP
+			? "Temporary HP"
+			: effectType.ToString();
+	}
+
+	private static ActionLogPopupPage GetDetailPage(EffectType effectType)
+	{
+		return effectType switch
+		{
+			EffectType.Damage => ActionLogPopupPage.Damage,
+			EffectType.Condition => ActionLogPopupPage.Condition,
+			EffectType.TemporaryHP => ActionLogPopupPage.TemporaryHP,
+			EffectType.Heal => ActionLogPopupPage.Heal,
+			EffectType.Buff => ActionLogPopupPage.Buff,
+			_ => ActionLogPopupPage.EffectType
+		};
+	}
+
+	private enum ActionLogPopupPage
+	{
+		Actors,
+		EffectsOverview,
+		EffectType,
+		Damage,
+		Condition,
+		TemporaryHP,
+		Heal,
+		Buff
+	}
+
+	private sealed class EffectDraft
+	{
+		public EffectType Type { get; set; } = EffectType.Damage;
+		public HashSet<Guid> Targets { get; set; } = [];
+		public float Amount { get; set; } = 1;
+		public DamageType DamageType { get; set; } = DamageType.Slashing;
+		public float DamageMultiplier { get; set; } = 1;
+		public Condition Condition { get; set; } = Condition.Prone;
+		public string? Description { get; set; }
+
+		public static EffectDraft FromEffect(ActionEffect effect)
+		{
+			var draft = new EffectDraft
+			{
+				Type = effect.Type,
+				Description = effect.Description
+			};
+
+			switch (effect)
+			{
+				case ActionEffect_Damage damage:
+					var firstDamageInstance = damage.DamageInstances.FirstOrDefault();
+					draft.Targets = damage.DamageInstances.Select(instance => instance.Target).ToHashSet();
+					draft.Amount = firstDamageInstance?.BaseDamage ?? 1;
+					draft.DamageType = firstDamageInstance?.DamageType ?? DamageType.Slashing;
+					draft.DamageMultiplier = firstDamageInstance?.DamageMultiplier ?? 1;
+					break;
+				case ActionEffect_Condition condition:
+					draft.Condition = condition.Condition;
+					draft.Targets = condition.Targets.ToHashSet();
+					break;
+				case ActionEffect_TemporaryHP temporaryHp:
+					draft.Amount = temporaryHp.TemporaryHPAmount;
+					draft.Targets = temporaryHp.Targets.ToHashSet();
+					break;
+				case ActionEffect_Heal heal:
+					draft.Amount = heal.HealAmount;
+					draft.Targets = heal.Targets.ToHashSet();
+					break;
+				case ActionEffect_Buff buff:
+					draft.Targets = buff.Targets.ToHashSet();
+					break;
+			}
+
+			return draft;
+		}
+
+		public ActionEffect ToEffect()
+		{
+			return Type switch
+			{
+				EffectType.Damage => new ActionEffect_Damage
+				{
+					Type = EffectType.Damage,
+					Description = Description,
+					DamageInstances = Targets
+						.Select(target => new ActionEffect_DamageEntry
+						{
+							Target = target,
+							BaseDamage = Amount,
+							DamageType = DamageType,
+							DamageMultiplier = DamageMultiplier
+						})
+						.ToArray()
+				},
+				EffectType.Condition => new ActionEffect_Condition
+				{
+					Type = EffectType.Condition,
+					Description = Description,
+					Condition = Condition,
+					Targets = Targets.ToArray()
+				},
+				EffectType.TemporaryHP => new ActionEffect_TemporaryHP
+				{
+					Type = EffectType.TemporaryHP,
+					Description = Description,
+					TemporaryHPAmount = Amount,
+					Targets = Targets.ToArray()
+				},
+				EffectType.Heal => new ActionEffect_Heal
+				{
+					Type = EffectType.Heal,
+					Description = Description,
+					HealAmount = Amount,
+					Targets = Targets.ToArray()
+				},
+				EffectType.Buff => new ActionEffect_Buff
+				{
+					Type = EffectType.Buff,
+					Description = Description,
+					Targets = Targets.ToArray()
+				},
+				_ => new ActionEffect
+				{
+					Type = Type,
+					Description = Description
+				}
+			};
+		}
+	}
 }
