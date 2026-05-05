@@ -14,17 +14,23 @@ else
 			@foreach (var entry in Combat.ActionLog.Entries)
 			{
 				<div class="combat-action-log-entry">
-					@foreach (var actor in GetCreatures(entry.Actors))
-					{
-						<MudChip T="string" Class="ma-0" Size="Size.Small">
-							@actor.Name
-						</MudChip>
-					}
+					<div class="action-log-entry-actors">
+						@foreach (var actor in GetCreatures(entry.Actors))
+						{
+							<MudChip T="string" Class="ma-0 action-log-actor-chip" Size="Size.Small">
+								@actor.Name
+							</MudChip>
+						}
+					</div>
 
-					@foreach (var effect in entry.Effects)
-					{
-						<span>@FormatEffectSummary(effect)</span>
-					}
+					<div class="action-log-entry-effects">
+						@foreach (var effect in entry.Effects)
+						{
+							<div class="action-log-entry-effect">
+								@RenderEffectSummary(effect)
+							</div>
+						}
+					</div>
 				</div>
 			}
 
@@ -271,9 +277,9 @@ else
 
 				<MudPaper Outlined="true" Class="action-log-effect-row pa-2">
 					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-						<MudText Typo="Typo.body2" Class="action-log-effect-summary">
-							@FormatEffectSummary(effect)
-						</MudText>
+						<div class="action-log-effect-summary">
+							@RenderEffectSummary(effect)
+						</div>
 						<MudSpacer />
 						<MudIconButton Icon="@Icons.Material.Filled.Edit"
 									   Size="Size.Small"
@@ -632,54 +638,112 @@ else
 		return AllCombatCreatures.FirstOrDefault(creature => creature.GUID == guid);
 	}
 
-	private string FormatEffectSummary(ActionEffect effect)
-	{
-		return effect switch
+	private RenderFragment RenderEffectSummary(ActionEffect effect) => @<div class="action-log-effect-content">
+		@switch (effect)
 		{
-			ActionEffect_Damage damage => FormatDamageSummary(damage),
-			ActionEffect_Condition condition => $"applied {condition.Condition} to {FormatCreatureList(condition.Targets)}",
-			ActionEffect_TemporaryHP temporaryHp => $"gave {FormatAmount(temporaryHp.TemporaryHPAmount)} temporary HP to {FormatCreatureList(temporaryHp.Targets)}",
-			ActionEffect_Heal heal => $"healed {FormatAmount(heal.HealAmount)} HP on {FormatCreatureList(heal.Targets)}",
-			ActionEffect_Buff buff => string.IsNullOrWhiteSpace(buff.Description)
-				? $"buffed {FormatCreatureList(buff.Targets)}"
-				: $"buffed {FormatCreatureList(buff.Targets)}: {buff.Description}",
-			_ => effect.Description ?? effect.Type.ToString()
-		};
-	}
+			case ActionEffect_Damage damage:
+				@RenderDamageSummary(damage)
+				break;
+			case ActionEffect_Condition condition:
+				<span>applied @condition.Condition to</span>
+				@RenderTargetChips(condition.Targets)
+				break;
+			case ActionEffect_TemporaryHP temporaryHp:
+				<span>gave @FormatAmount(temporaryHp.TemporaryHPAmount) temporary HP to</span>
+				@RenderTargetChips(temporaryHp.Targets)
+				break;
+			case ActionEffect_Heal heal:
+				<span>healed @FormatAmount(heal.HealAmount) HP on</span>
+				@RenderTargetChips(heal.Targets)
+				break;
+			case ActionEffect_Buff buff:
+				<span>buffed</span>
+				@RenderTargetChips(buff.Targets)
+				@if (!string.IsNullOrWhiteSpace(buff.Description))
+				{
+					<span class="action-log-effect-note">@buff.Description</span>
+				}
+				break;
+			default:
+				<span>@(effect.Description ?? effect.Type.ToString())</span>
+				break;
+		}
+	</div>;
 
-	private string FormatDamageSummary(ActionEffect_Damage damage)
+	private RenderFragment RenderDamageSummary(ActionEffect_Damage damage) => @<div class="action-log-effect-lines">
+		@{
+			var groups = GetDamageSummaryGroups(damage);
+		}
+		@if (groups.Count == 0)
+		{
+			<span>dealt damage</span>
+		}
+		else
+		{
+			@foreach (var group in groups)
+			{
+				<div class="action-log-effect-line">
+					<span>dealt</span>
+					<span class="action-log-damage-text" style="@GetDamageTextStyle(group.DamageType)">
+						@FormatAmount(group.ActualDamage) @FormatDamageType(group.DamageType) damage
+					</span>
+					<span>to</span>
+					@RenderTargetChips(group.Targets)
+				</div>
+			}
+		}
+	</div>;
+
+	private RenderFragment RenderTargetChips(IEnumerable<Guid> targetGuids) => @<span class="action-log-target-chip-list">
+		@{
+			var targets = targetGuids
+				.Select(guid => new
+				{
+					Name = GetCreatureFromGuid(guid)?.Name ?? "Unknown creature"
+				})
+				.OrderBy(target => target.Name)
+				.ToList();
+		}
+		@if (targets.Count == 0)
+		{
+			<span>no targets</span>
+		}
+		else
+		{
+			@foreach (var target in targets)
+			{
+				<MudChip T="string" Class="ma-0 action-log-target-chip" Size="Size.Small" Variant="Variant.Outlined">
+					@target.Name
+				</MudChip>
+			}
+		}
+	</span>;
+
+	private List<DamageSummaryGroup> GetDamageSummaryGroups(ActionEffect_Damage damage)
 	{
-		var groupedDamageInstances = damage.DamageInstances
+		return damage.DamageInstances
 			.Select(instance => new
 			{
-				TargetName = GetCreatureFromGuid(instance.Target)?.Name ?? "Unknown creature",
+				instance.Target,
 				ActualDamage = instance.BaseDamage * instance.DamageMultiplier,
 				instance.DamageType
 			})
 			.GroupBy(instance => new { instance.ActualDamage, instance.DamageType })
+			.Select(group => new DamageSummaryGroup(
+				group.Key.ActualDamage,
+				group.Key.DamageType,
+				group
+					.Select(instance => instance.Target)
+					.OrderBy(TargetSortName)
+					.ToList()))
+			.OrderBy(group => group.DamageType)
+			.ThenBy(group => group.ActualDamage)
 			.ToList();
-
-		if (groupedDamageInstances.Count == 0)
-		{
-			return "dealt damage";
-		}
-
-		var parts = groupedDamageInstances
-			.Select(group => $"dealt {FormatAmount(group.Key.ActualDamage)} {FormatDamageType(group.Key.DamageType)} damage to {string.Join(", ", group.Select(instance => instance.TargetName).Order())}");
-
-		return string.Join("; ", parts);
 	}
 
-	private string FormatCreatureList(IEnumerable<Guid> targets)
+	private string TargetSortName(Guid guid)
 	{
-		var names = targets
-			.Select(guid => GetCreatureFromGuid(guid)?.Name ?? "Unknown creature")
-			.Order()
-			.ToList();
-
-		return names.Count == 0
-			? "no targets"
-			: string.Join(", ", names);
+		return GetCreatureFromGuid(guid)?.Name ?? "Unknown creature";
 	}
 
 	private static string FormatAmount(float amount)
@@ -692,6 +756,11 @@ else
 	private static string FormatDamageType(DamageType damageType)
 	{
 		return damageType.ToString().ToLowerInvariant();
+	}
+
+	private static string GetDamageTextStyle(DamageType damageType)
+	{
+		return $"color: {DamageTypeColors.GetColor(damageType)};";
 	}
 
 	private static string FormatEffectType(EffectType effectType)
@@ -725,6 +794,8 @@ else
 		Heal,
 		Buff
 	}
+
+	private sealed record DamageSummaryGroup(float ActualDamage, DamageType DamageType, IReadOnlyList<Guid> Targets);
 
 	private sealed class EffectDraft
 	{

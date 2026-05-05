@@ -251,11 +251,13 @@ code {
 }
 
 .combat-action-log-entry {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    column-gap: 0.25rem;
-    row-gap: 0.25rem;
+    display: grid;
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 6px;
 }
 
 .combat-action-log {
@@ -273,6 +275,76 @@ code {
     flex: 0 0 auto;
     align-items: center;
     padding-top: 0.75rem;
+}
+
+.action-log-entry-actors,
+.action-log-entry-effects,
+.action-log-effect-content,
+.action-log-effect-line,
+.action-log-target-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.action-log-entry-actors {
+    align-content: flex-start;
+    padding-right: 0.5rem;
+    border-right: 1px solid var(--mud-palette-lines-default);
+}
+
+.action-log-entry-effects {
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+}
+
+.action-log-entry-effect {
+    padding: 0.375rem 0.5rem;
+    border-radius: 4px;
+}
+
+.action-log-entry-effect:nth-child(odd) {
+    background: rgba(0, 0, 0, 0.025);
+}
+
+.action-log-entry-effect:nth-child(even) {
+    background: rgba(0, 0, 0, 0.055);
+}
+
+.action-log-entry-effect + .action-log-entry-effect {
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.action-log-effect-content,
+.action-log-effect-line {
+    min-width: 0;
+}
+
+.action-log-effect-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.action-log-damage-text {
+    font-weight: 700;
+}
+
+.action-log-target-chip-list {
+    display: inline-flex;
+}
+
+.action-log-target-chip {
+    border-color: var(--mud-palette-lines-inputs);
+}
+
+.action-log-effect-note {
+    color: var(--mud-palette-text-secondary);
 }
 
 .action-log-popup-backdrop {
@@ -330,6 +402,7 @@ code {
 
 .action-log-effect-summary {
     min-width: 0;
+    flex: 1 1 auto;
 }
 
 .action-log-multiplier-buttons {
@@ -350,5 +423,18 @@ code {
 @media (min-width: 960px) {
     .home-content-column {
         height: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+    .combat-action-log-entry {
+        grid-template-columns: 1fr;
+    }
+
+    .action-log-entry-actors {
+        padding-right: 0;
+        padding-bottom: 0.5rem;
+        border-right: 0;
+        border-bottom: 1px solid var(--mud-palette-lines-default);
     }
 }
