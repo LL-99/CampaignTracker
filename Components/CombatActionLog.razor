@@ -65,7 +65,7 @@ else
 									   OnClick="ClosePopup" />
 					</MudStack>
 
-					<MudText Typo="Typo.caption" Color="Color.Secondary">@PopupStepText</MudText>
+					<MudProgressLinear Color="Color.Success" Rounded="true" Size="Size.Large" Value="@PopupProgressValue" />
 
 					<div class="action-log-popup-body">
 						@switch (_page)
@@ -217,12 +217,12 @@ else
 		_ => "Action Log Entry"
 	};
 
-	private string PopupStepText => _page switch
+	private int PopupProgressValue => _page switch
 	{
-		ActionLogPopupPage.Actors => "1 / 4",
-		ActionLogPopupPage.EffectsOverview => "2 / 4",
-		ActionLogPopupPage.EffectType => "3 / 4",
-		_ => "4 / 4"
+		ActionLogPopupPage.Actors => 25,
+		ActionLogPopupPage.EffectsOverview => 50,
+		ActionLogPopupPage.EffectType => 75,
+		_ => 100
 	};
 
 	protected override void OnParametersSet()
