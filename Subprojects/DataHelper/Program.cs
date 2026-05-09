@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CampaignTracker.Model.Creatures;
@@ -21,11 +23,22 @@ foreach (var pageFile in index.Values.Distinct(StringComparer.OrdinalIgnoreCase)
     Console.WriteLine($"Loaded {pageCreatures.Count,4} creatures from {pageFile}");
 }
 
-var orderedCreatures = rawCreatures
+var importedCreatures = rawCreatures
     .Select(monster => ToStaticCreature(monster, rawCreaturesByKey))
+    .ToList();
+var duplicateCreatureInfo = GetDuplicateCreatureInfo(importedCreatures);
+var (mergedCreatures, mergedDuplicateCreatureCount) = MergeIdenticalCreatures(importedCreatures);
+
+foreach (var creature in mergedCreatures)
+{
+    creature.GUID = CreateStableGuid(creature.Name, creature.Source);
+}
+
+var orderedCreatures = mergedCreatures
     .OrderBy(creature => creature.Name, StringComparer.OrdinalIgnoreCase)
     .ThenBy(creature => creature.Source, StringComparer.OrdinalIgnoreCase)
     .ToList();
+var keptDuplicateCreatureInfo = GetDuplicateCreatureInfo(orderedCreatures);
 
 var outputPath = args.Length > 0
     ? Path.GetFullPath(args[0])
@@ -34,6 +47,11 @@ await File.WriteAllTextAsync(
     outputPath,
     JsonSerializer.Serialize(orderedCreatures, JsonOptions));
 
+Console.WriteLine(
+    $"Duplicate creature entries by name/source before exact-match merging: {duplicateCreatureInfo.DuplicateEntryCount} across {duplicateCreatureInfo.DuplicateNameCount} names.");
+Console.WriteLine($"Merged {mergedDuplicateCreatureCount} exact duplicate creature entries into shared source lists.");
+Console.WriteLine(
+    $"Duplicate creature entries kept in output after exact-match merging: {keptDuplicateCreatureInfo.DuplicateEntryCount} across {keptDuplicateCreatureInfo.DuplicateNameCount} names.");
 Console.WriteLine($"Wrote {orderedCreatures.Count} creatures to {outputPath}");
 
 static async Task<(Uri SourceBaseUri, Dictionary<string, string> Index)> LoadBestiaryIndex(HttpClient httpClient)
@@ -117,6 +135,78 @@ static StaticCreature ToStaticCreature(
             Vulnerabilities = vulnerabilities
         }
     };
+}
+
+static DuplicateCreatureInfo GetDuplicateCreatureInfo(IReadOnlyCollection<StaticCreature> creatures)
+{
+    var duplicateGroups = creatures
+        .GroupBy(creature => creature.Name, StringComparer.OrdinalIgnoreCase)
+        .Where(group => group
+            .Select(creature => creature.Source ?? string.Empty)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Skip(1)
+            .Any())
+        .ToList();
+
+    return new DuplicateCreatureInfo(
+        duplicateGroups.Count,
+        duplicateGroups.Sum(group => group.Count() - 1));
+}
+
+static (List<StaticCreature> Creatures, int MergedDuplicateCreatureCount) MergeIdenticalCreatures(
+    IReadOnlyCollection<StaticCreature> creatures)
+{
+    var mergedCreatures = new List<StaticCreature>();
+    var mergedDuplicateCreatureCount = 0;
+
+    foreach (var group in creatures.GroupBy(CreateExactCreatureKey))
+    {
+        var groupCreatures = group.ToList();
+        var first = groupCreatures[0];
+        var mergedSources = groupCreatures
+            .SelectMany(creature => SplitSources(creature.Source))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(source => source, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        first.Source = mergedSources.Length == 0
+            ? null
+            : string.Join(", ", mergedSources);
+
+        mergedCreatures.Add(first);
+        mergedDuplicateCreatureCount += groupCreatures.Count - 1;
+    }
+
+    return (mergedCreatures, mergedDuplicateCreatureCount);
+}
+
+static ExactCreatureKey CreateExactCreatureKey(StaticCreature creature)
+{
+    return new ExactCreatureKey(
+        creature.Name.Trim().ToUpperInvariant(),
+        creature.ChallengeRating,
+        creature.Stats.HP,
+        string.Join(",", creature.Stats.Resistances.OrderBy(type => type).Select(type => type.ToString())),
+        string.Join(",", creature.Stats.Vulnerabilities.OrderBy(type => type).Select(type => type.ToString())));
+}
+
+static IEnumerable<string> SplitSources(string? source)
+{
+    return (source ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(splitSource => !string.IsNullOrWhiteSpace(splitSource));
+}
+
+static Guid CreateStableGuid(string name, string? source)
+{
+    var stableKey = $"CampaignTracker.StaticCreature|{name.Trim().ToUpperInvariant()}|{(source ?? string.Empty).Trim().ToUpperInvariant()}";
+    var hash = SHA256.HashData(Encoding.UTF8.GetBytes(stableKey));
+    var guidBytes = hash[..16];
+
+    guidBytes[7] = (byte)((guidBytes[7] & 0x0F) | 0x50);
+    guidBytes[8] = (byte)((guidBytes[8] & 0x3F) | 0x80);
+
+    return new Guid(guidBytes);
 }
 
 static OptionalJsonElement ResolveProperty(
@@ -346,6 +436,15 @@ static float ParseNumber(JsonElement number)
 }
 
 internal readonly record struct CreatureKey(string Name, string Source);
+
+internal readonly record struct DuplicateCreatureInfo(int DuplicateNameCount, int DuplicateEntryCount);
+
+internal readonly record struct ExactCreatureKey(
+    string Name,
+    float? ChallengeRating,
+    float HP,
+    string Resistances,
+    string Vulnerabilities);
 
 internal readonly struct OptionalJsonElement
 {

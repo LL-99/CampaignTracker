@@ -2,6 +2,6 @@
 {
     public class DataElement
     {
-        public Guid GUID { get; private set; } = Guid.CreateVersion7();
+        public Guid GUID { get; set; } = Guid.CreateVersion7();
     }
 }
