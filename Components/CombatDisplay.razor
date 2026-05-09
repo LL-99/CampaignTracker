@@ -14,10 +14,16 @@
 			</MudStack>
 		</MudTabPanel>
 
+		<MudTabPanel Text="Stats" PanelClass="nested-tab-panel">
+			<CombatStatsDisplay ScopeTitle="Combat Stats"
+								Campaign="StatsCampaign"
+								Combats="CombatStatsCombats" />
+		</MudTabPanel>
+
 		<MudTabPanel Text="Creatures" PanelClass="nested-tab-panel">
-			<MudGrid Spacing="3" Class="home-panel-scroll">
+			<MudGrid Spacing="3" Class="combat-creatures-grid">
 				<MudItem xs="12" md="6">
-					<MudStack Spacing="2">
+					<MudStack Spacing="2" Class="combat-player-select">
 						<MudText Typo="Typo.subtitle1">Player Characters</MudText>
 						<MudTextField T="string"
 									  @bind-Value="_playerFilter"
@@ -166,6 +172,10 @@
 
 	private IEnumerable<PlayerCharacter> FilteredPlayerCharacters => AvailablePlayerCharacters
 		.Where(playerCharacter => string.IsNullOrWhiteSpace(_playerFilter) || playerCharacter.DisplayName.Contains(_playerFilter, StringComparison.OrdinalIgnoreCase));
+
+	private Campaign? StatsCampaign => Campaign ?? Combat.Campaign;
+
+	private IReadOnlyCollection<Combat> CombatStatsCombats => [Combat];
 
 	private IReadOnlyCollection<StaticCreature> AvailableNpcs => Combat.Sessions
 		.SelectMany(session => session.Npcs)

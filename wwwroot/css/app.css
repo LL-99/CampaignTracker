@@ -114,6 +114,11 @@ code {
     overflow-y: auto;
 }
 
+.creature-multi-select {
+    height: 100%;
+    min-height: 0;
+}
+
 .creature-import-list {
     height: 55dvh;
     max-height: 36rem;
@@ -166,7 +171,9 @@ code {
 .home-panel-scroll,
 .home-fill-container,
 .detail-display,
-.home-content-grid {
+.home-content-grid,
+.selection-detail-pane,
+.selection-detail-body {
     min-height: 0;
 }
 
@@ -199,6 +206,20 @@ code {
 
 .detail-display {
     height: 100%;
+    overflow: hidden;
+}
+
+.selection-detail-pane {
+    overflow: hidden;
+}
+
+.selection-detail-heading {
+    flex: 0 0 auto;
+    margin-bottom: 0.75rem;
+}
+
+.selection-detail-body {
+    flex: 1 1 auto;
     overflow: hidden;
 }
 
@@ -280,6 +301,228 @@ code {
 
 .combat-order-input {
     flex: 0 0 6rem;
+}
+
+.combat-creatures-grid,
+.session-selection-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.combat-creatures-grid > .mud-grid-item,
+.session-selection-grid > .mud-grid-item {
+    min-height: 0;
+}
+
+.combat-creatures-grid .creature-select-list,
+.session-selection-grid .creature-select-list,
+.combat-player-select .creature-select-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.combat-player-select,
+.session-detail-panel {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.session-selection-grid .creature-multi-select {
+    min-height: 12rem;
+}
+
+.combat-creatures-grid .creature-multi-select,
+.combat-player-select {
+    min-height: 12rem;
+}
+
+.stats-display {
+    padding-right: 0.25rem;
+}
+
+.stats-header {
+    flex: 0 0 auto;
+}
+
+.stats-highlight-card,
+.stats-chart-card {
+    height: 100%;
+    overflow: hidden;
+}
+
+.stats-highlight-copy {
+    min-width: 0;
+}
+
+.stats-highlight-copy .mud-typography-subtitle1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stats-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.25rem 0.75rem;
+}
+
+.stats-donut-layout {
+    display: grid;
+    grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+    margin-top: 0.75rem;
+}
+
+.stats-donut {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 50%;
+}
+
+.stats-donut::after {
+    content: "";
+    position: absolute;
+    inset: 22%;
+    border-radius: 50%;
+    background: var(--mud-palette-surface);
+}
+
+.stats-donut-center {
+    position: absolute;
+    inset: 28%;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    color: var(--mud-palette-text-primary);
+    font-weight: 700;
+}
+
+.stats-legend,
+.stats-bar-list,
+.stats-profile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    margin-top: 0.75rem;
+}
+
+.stats-legend-row,
+.stats-bar-row,
+.stats-mini-bar-row {
+    display: grid;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.stats-legend-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.stats-legend-swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+}
+
+.stats-legend-label,
+.stats-bar-label,
+.stats-profile-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stats-legend-value,
+.stats-bar-value {
+    color: var(--mud-palette-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-bar-row {
+    grid-template-columns: minmax(7rem, 14rem) minmax(0, 1fr) 4rem;
+}
+
+.stats-bar-track,
+.stats-mini-bar-track {
+    min-width: 0;
+    height: 0.75rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.stats-bar-fill,
+.stats-mini-bar-fill {
+    height: 100%;
+    border-radius: inherit;
+}
+
+.stats-matrix {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 1fr) repeat(4, minmax(4rem, 1fr));
+    gap: 0.25rem;
+    margin-top: 0.75rem;
+    min-width: 0;
+}
+
+.stats-matrix-corner,
+.stats-matrix-heading {
+    padding: 0.35rem;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.stats-matrix-cell {
+    position: relative;
+    min-height: 2rem;
+    padding: 0.35rem;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 4px;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-matrix-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: rgba(37, 99, 235, 0.16);
+}
+
+.stats-matrix-cell span {
+    position: relative;
+}
+
+.stats-profile-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.stats-profile-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.stats-mini-bar-row {
+    grid-template-columns: 3.75rem minmax(0, 1fr) 3rem;
+    font-size: 0.8125rem;
+}
+
+.stats-mini-bar-row strong {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .combat-action-log-entry {

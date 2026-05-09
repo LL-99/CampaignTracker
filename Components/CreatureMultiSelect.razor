@@ -1,7 +1,7 @@
 ﻿@typeparam TCreature where TCreature : Creature
 @using CampaignTracker.Model.Creatures
 
-<MudStack Spacing="2">
+<MudStack Spacing="2" Class="creature-multi-select">
 	<MudText Typo="Typo.subtitle1">@Title</MudText>
 	<MudTextField T="string"
 				  @bind-Value="_filter"

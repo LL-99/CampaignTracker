@@ -144,27 +144,38 @@ else
 				</MudItem>
 
 				<MudItem xs="8" md="9" Class="home-content-column">
-					<MudPaper Elevation="1" Class="pa-3 home-scroll-pane">
-						<MudText>Latest selection: @LatestSelText</MudText>
+					<MudPaper Elevation="1" Class="pa-3 home-fill-container selection-detail-pane">
+						<MudText Class="selection-detail-heading">Latest selection: @LatestSelText</MudText>
 
 						@if (LatestSel != null)
 						{
 							if (LatestSel.IsSession)
 							{
-								<SessionDisplay Session=@LatestSel.Session SessionDeleted="SessionDeleted" Changed="PersistCampaign" />
+								<div class="selection-detail-body">
+									<SessionDisplay Session=@LatestSel.Session SessionDeleted="SessionDeleted" Changed="PersistCampaign" />
+								</div>
 							}
 							else if (LatestSel.Combat is not null)
 							{
-								<CombatDisplay Combat="@LatestSel.Combat"
-											   Campaign="DataService.Campaign"
-											   CombatDeleted="CombatDeleted"
-											   CombatUpdated="CombatUpdated"
-											   Changed="PersistCampaign" />
+								<div class="selection-detail-body">
+									<CombatDisplay Combat="@LatestSel.Combat"
+												   Campaign="DataService.Campaign"
+												   CombatDeleted="CombatDeleted"
+												   CombatUpdated="CombatUpdated"
+												   Changed="PersistCampaign" />
+								</div>
 							}
 						}
 					</MudPaper>
 				</MudItem>
 			</MudGrid>
+		</MudTabPanel>
+
+		<MudTabPanel Text="Campaign Stats" PanelClass="home-tab-panel">
+			@if (DataService.Campaign is not null)
+			{
+				<CampaignStatsDisplay Campaign="DataService.Campaign" />
+			}
 		</MudTabPanel>
 
 		<MudTabPanel Text="Campaign Config" PanelClass="home-tab-panel">

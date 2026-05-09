@@ -1,0 +1,801 @@
+﻿@using CampaignTracker.Model.Combats
+@using CampaignTracker.Model.Creatures
+@using CampaignTracker.Model.Structure
+@using System.Globalization
+
+@{
+	var snapshot = BuildSnapshot();
+	var totalDamage = snapshot.DamageTaken.Sum(record => record.Amount);
+	var totalHealing = snapshot.HealingTaken.Sum(record => record.Amount);
+	var topDealer = GetDamageDoneValues(snapshot).FirstOrDefault();
+	var topTarget = GetDamageTakenValues(snapshot).FirstOrDefault();
+	var biggestHit = snapshot.DamageTaken.OrderByDescending(record => record.Amount).FirstOrDefault();
+	var filteredSnapshot = Interactive ? FilterSnapshot(snapshot) : snapshot;
+}
+
+<MudStack Spacing="3" Class="stats-display home-panel-scroll">
+	<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="stats-header flex-wrap">
+		<MudText Typo="Typo.h5">@ScopeTitle</MudText>
+		<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@snapshot.CombatCount combat@(snapshot.CombatCount == 1 ? string.Empty : "s")</MudChip>
+		<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@snapshot.EntryCount log entr@(snapshot.EntryCount == 1 ? "y" : "ies")</MudChip>
+	</MudStack>
+
+	@if (snapshot.EntryCount == 0)
+	{
+		<MudPaper Outlined="true" Class="pa-4">
+			<MudText Typo="Typo.body2" Color="Color.Secondary">No action log entries available for this scope yet.</MudText>
+		</MudPaper>
+	}
+	else
+	{
+		<MudGrid Spacing="2">
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Total Damage", FormatAmount(totalDamage), Icons.Material.Filled.Bolt)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Top Damage Dealer", FormatStatLeader(topDealer), Icons.Material.Filled.EmojiEvents)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Most Damage Taken", FormatStatLeader(topTarget), Icons.Material.Filled.Shield)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Biggest Hit", FormatBiggestHit(biggestHit), Icons.Material.Filled.Whatshot)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Healing Done", FormatAmount(totalHealing), Icons.Material.Filled.Favorite)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Conditions Applied", snapshot.Conditions.Count.ToString(CultureInfo.InvariantCulture), Icons.Material.Filled.FrontHand)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Active Turns", snapshot.TurnCount.ToString(CultureInfo.InvariantCulture), Icons.Material.Filled.Update)</MudItem>
+			<MudItem xs="12" sm="6" lg="3">@RenderHighlight("Damage Types", GetDamageTypeValues(snapshot).Count.ToString(CultureInfo.InvariantCulture), Icons.Material.Filled.AutoGraph)</MudItem>
+		</MudGrid>
+
+		@if (Interactive)
+		{
+			@RenderCharacterFilters(snapshot)
+		}
+
+		<MudGrid Spacing="3">
+			<MudItem xs="12" lg="4">
+				@RenderDonutChart("Overall Damage By Type", GetDamageTypeValues(snapshot), "damage")
+			</MudItem>
+			<MudItem xs="12" lg="4">
+				@RenderBarChart("Damage Dealt By Group", GetDamageDoneRoleValues(snapshot), "damage", 8)
+			</MudItem>
+			<MudItem xs="12" lg="4">
+				@RenderBarChart("Damage Taken By Group", GetDamageTakenRoleValues(snapshot), "damage", 8)
+			</MudItem>
+			<MudItem xs="12" lg="6">
+				@RenderBarChart("Top Damage Dealers", GetDamageDoneValues(filteredSnapshot), "damage", LimitNonPlayerIndividuals ? 8 : 12)
+			</MudItem>
+			<MudItem xs="12" lg="6">
+				@RenderBarChart("Top Damage Taken", GetDamageTakenValues(filteredSnapshot), "damage", LimitNonPlayerIndividuals ? 8 : 12)
+			</MudItem>
+			<MudItem xs="12" lg="6">
+				@RenderBarChart("Healing By Source", GetHealingDoneValues(filteredSnapshot), "healing", 8)
+			</MudItem>
+			<MudItem xs="12" lg="6">
+				@RenderBarChart("Conditions By Target", GetConditionTargetValues(filteredSnapshot), "count", 8)
+			</MudItem>
+		</MudGrid>
+
+		@if (Detailed)
+		{
+			<MudDivider />
+			<MudText Typo="Typo.h6">Campaign Detail</MudText>
+			<MudGrid Spacing="3">
+				<MudItem xs="12" lg="6">
+					@RenderBarChart("Damage By Session", GetSessionDamageValues(snapshot), "damage", 14)
+				</MudItem>
+				<MudItem xs="12" lg="6">
+					@RenderBarChart("Damage By Combat", GetCombatDamageValues(snapshot), "damage", 14)
+				</MudItem>
+				<MudItem xs="12" lg="6">
+					@RenderRoleMatrix(snapshot)
+				</MudItem>
+				<MudItem xs="12" lg="6">
+					@RenderPlayerFocus(filteredSnapshot)
+				</MudItem>
+			</MudGrid>
+		}
+	}
+</MudStack>
+
+@code {
+	private readonly HashSet<Guid> _visibleCreatureGuids = [];
+	private string _filterScopeKey = string.Empty;
+
+	[Parameter]
+	public string ScopeTitle { get; set; } = "Stats";
+
+	[Parameter]
+	public Campaign? Campaign { get; set; }
+
+	[Parameter]
+	public IReadOnlyCollection<Combat> Combats { get; set; } = [];
+
+	[Parameter]
+	public bool Detailed { get; set; }
+
+	[Parameter]
+	public bool Interactive { get; set; }
+
+	[Parameter]
+	public bool LimitNonPlayerIndividuals { get; set; }
+
+	protected override void OnParametersSet()
+	{
+		var scopeKey = string.Join("|", Combats.Select(combat => combat.GUID).Order());
+		if (scopeKey == _filterScopeKey)
+		{
+			return;
+		}
+
+		_filterScopeKey = scopeKey;
+		_visibleCreatureGuids.Clear();
+		foreach (var creature in GetTrackedCreatures(BuildSnapshot()))
+		{
+			_visibleCreatureGuids.Add(creature.Guid);
+		}
+	}
+
+	private Snapshot BuildSnapshot()
+	{
+		var combats = Combats
+			.Where(combat => combat is not null)
+			.GroupBy(combat => combat.GUID)
+			.Select(group => group.First())
+			.ToList();
+
+		var damageDone = new List<DamageDoneRecord>();
+		var damageTaken = new List<DamageTakenRecord>();
+		var healingDone = new List<HealingDoneRecord>();
+		var healingTaken = new List<HealingTakenRecord>();
+		var conditions = new List<ConditionRecord>();
+		var turnKeys = new HashSet<(Guid CombatGuid, int Turn)>();
+		var entryCount = 0;
+
+		foreach (var combat in combats)
+		{
+			var combatName = GetCombatName(combat);
+			foreach (var entry in combat.ActionLog?.Entries ?? [])
+			{
+				entryCount++;
+				turnKeys.Add((combat.GUID, entry.Turn));
+				var actorGuids = entry.Actors.Where(actor => actor != Guid.Empty).Distinct().ToList();
+				var actorCount = Math.Max(1, actorGuids.Count);
+				var actorNames = actorGuids.Count == 0
+					? "Unknown source"
+					: string.Join(", ", actorGuids.Select(actor => GetCreatureName(actor, combat)).Order());
+
+				foreach (var effect in entry.Effects)
+				{
+					switch (effect)
+					{
+						case ActionEffect_Damage damage:
+							foreach (var instance in damage.DamageInstances)
+							{
+								var amount = Math.Max(0, instance.BaseDamage * instance.DamageMultiplier);
+								if (amount <= 0)
+								{
+									continue;
+								}
+
+								var targetRole = GetCreatureRole(instance.Target, combat);
+								var targetName = GetCreatureName(instance.Target, combat);
+								damageTaken.Add(new DamageTakenRecord(
+									instance.Target,
+									targetName,
+									targetRole,
+									actorNames,
+									instance.DamageType,
+									amount,
+									combat.GUID,
+									combatName,
+									GetSessionNames(combat),
+									entry.Turn));
+
+								if (actorGuids.Count == 0)
+								{
+									damageDone.Add(new DamageDoneRecord(null, "Unknown source", CreatureRole.Unknown, instance.Target, targetRole, targetName, instance.DamageType, amount, combat.GUID, combatName, GetSessionNames(combat), entry.Turn));
+								}
+								else
+								{
+									foreach (var actorGuid in actorGuids)
+									{
+										damageDone.Add(new DamageDoneRecord(
+											actorGuid,
+											GetCreatureName(actorGuid, combat),
+											GetCreatureRole(actorGuid, combat),
+											instance.Target,
+											targetRole,
+											targetName,
+											instance.DamageType,
+											amount / actorCount,
+											combat.GUID,
+											combatName,
+											GetSessionNames(combat),
+											entry.Turn));
+									}
+								}
+							}
+							break;
+						case ActionEffect_Heal heal:
+							foreach (var target in heal.Targets.Distinct())
+							{
+								var amount = Math.Max(0, heal.HealAmount);
+								if (amount <= 0)
+								{
+									continue;
+								}
+
+								healingTaken.Add(new HealingTakenRecord(target, GetCreatureName(target, combat), GetCreatureRole(target, combat), amount, combat.GUID, combatName, GetSessionNames(combat), entry.Turn));
+								if (actorGuids.Count == 0)
+								{
+									healingDone.Add(new HealingDoneRecord(null, "Unknown source", CreatureRole.Unknown, amount, combat.GUID, combatName, GetSessionNames(combat), entry.Turn));
+								}
+								else
+								{
+									foreach (var actorGuid in actorGuids)
+									{
+										healingDone.Add(new HealingDoneRecord(actorGuid, GetCreatureName(actorGuid, combat), GetCreatureRole(actorGuid, combat), amount / actorCount, combat.GUID, combatName, GetSessionNames(combat), entry.Turn));
+									}
+								}
+							}
+							break;
+						case ActionEffect_Condition condition:
+							foreach (var target in condition.Targets.Distinct())
+							{
+								conditions.Add(new ConditionRecord(
+									actorGuids.Count == 0 ? null : actorGuids.First(),
+									actorGuids.Count == 0 ? "Unknown source" : GetCreatureName(actorGuids.First(), combat),
+									target,
+									GetCreatureName(target, combat),
+									GetCreatureRole(target, combat),
+									condition.Condition,
+									combat.GUID,
+									combatName,
+									GetSessionNames(combat),
+									entry.Turn));
+							}
+							break;
+					}
+				}
+			}
+		}
+
+		return new Snapshot(combats.Count, entryCount, turnKeys.Count, damageDone, damageTaken, healingDone, healingTaken, conditions);
+	}
+
+	private Snapshot FilterSnapshot(Snapshot snapshot)
+	{
+		return snapshot with
+		{
+			DamageDone = snapshot.DamageDone.Where(record => record.ActorGuid is null || _visibleCreatureGuids.Contains(record.ActorGuid.Value)).ToList(),
+			DamageTaken = snapshot.DamageTaken.Where(record => _visibleCreatureGuids.Contains(record.TargetGuid)).ToList(),
+			HealingDone = snapshot.HealingDone.Where(record => record.ActorGuid is null || _visibleCreatureGuids.Contains(record.ActorGuid.Value)).ToList(),
+			HealingTaken = snapshot.HealingTaken.Where(record => _visibleCreatureGuids.Contains(record.TargetGuid)).ToList(),
+			Conditions = snapshot.Conditions.Where(record => _visibleCreatureGuids.Contains(record.TargetGuid)).ToList()
+		};
+	}
+
+	private IReadOnlyList<TrackedCreature> GetTrackedCreatures(Snapshot snapshot)
+	{
+		var players = snapshot.DamageDone
+			.Where(record => record.ActorGuid.HasValue && record.ActorRole == CreatureRole.Players)
+			.Select(record => new TrackedCreature(record.ActorGuid!.Value, record.ActorName, record.ActorRole))
+			.Concat(snapshot.DamageTaken.Where(record => record.TargetRole == CreatureRole.Players).Select(record => new TrackedCreature(record.TargetGuid, record.TargetName, record.TargetRole)))
+			.GroupBy(creature => creature.Guid)
+			.Select(group => group.First())
+			.OrderBy(creature => creature.Name)
+			.ToList();
+
+		if (!LimitNonPlayerIndividuals)
+		{
+			return players
+				.Concat(GetTopTrackedCreatures(snapshot, CreatureRole.NPCs, int.MaxValue))
+				.Concat(GetTopTrackedCreatures(snapshot, CreatureRole.Enemies, int.MaxValue))
+				.Concat(GetTopTrackedCreatures(snapshot, CreatureRole.Environmentals, int.MaxValue))
+				.GroupBy(creature => creature.Guid)
+				.Select(group => group.First())
+				.OrderBy(creature => creature.Role)
+				.ThenBy(creature => creature.Name)
+				.ToList();
+		}
+
+		return players
+			.Concat(GetTopTrackedCreatures(snapshot, CreatureRole.NPCs, 3))
+			.Concat(GetTopTrackedCreatures(snapshot, CreatureRole.Enemies, 3))
+			.GroupBy(creature => creature.Guid)
+			.Select(group => group.First())
+			.OrderBy(creature => creature.Role)
+			.ThenBy(creature => creature.Name)
+			.ToList();
+	}
+
+	private static IReadOnlyList<TrackedCreature> GetTopTrackedCreatures(Snapshot snapshot, CreatureRole role, int count)
+	{
+		return snapshot.DamageDone
+			.Where(record => record.ActorGuid.HasValue && record.ActorRole == role)
+			.Select(record => new { Guid = record.ActorGuid!.Value, Name = record.ActorName, Role = record.ActorRole, Score = record.Amount })
+			.Concat(snapshot.DamageTaken.Where(record => record.TargetRole == role).Select(record => new { Guid = record.TargetGuid, Name = record.TargetName, Role = record.TargetRole, Score = record.Amount }))
+			.GroupBy(record => record.Guid)
+			.Select(group => new
+			{
+				Guid = group.Key,
+				Name = group.First().Name,
+				Role = group.First().Role,
+				Score = group.Sum(record => record.Score)
+			})
+			.OrderByDescending(record => record.Score)
+			.ThenBy(record => record.Name)
+			.Take(count)
+			.Select(record => new TrackedCreature(record.Guid, record.Name, record.Role))
+			.ToList();
+	}
+
+	private RenderFragment RenderHighlight(string label, string value, string icon) => @<MudPaper Elevation="1" Class="pa-3 stats-highlight-card">
+		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+			<MudIcon Icon="@icon" Color="Color.Primary" />
+			<MudStack Spacing="0" Class="stats-highlight-copy">
+				<MudText Typo="Typo.overline">@label</MudText>
+				<MudText Typo="Typo.subtitle1">@value</MudText>
+			</MudStack>
+		</MudStack>
+	</MudPaper>;
+
+	private RenderFragment RenderCharacterFilters(Snapshot snapshot) => @<MudPaper Outlined="true" Class="pa-3">
+		<MudStack Spacing="2">
+			<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+				<MudText Typo="Typo.subtitle2">Interactive Character Filters</MudText>
+				<MudSpacer />
+				<MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => SetAllTrackedCreatures(snapshot, true))">All</MudButton>
+				<MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => SetAllTrackedCreatures(snapshot, false))">None</MudButton>
+			</MudStack>
+			<div class="stats-filter-grid">
+				@foreach (var creature in GetTrackedCreatures(snapshot))
+				{
+					<MudCheckBox T="bool"
+								 @key="creature.Guid"
+								 Dense="true"
+								 Size="Size.Small"
+								 Label="@($"{creature.Name} ({FormatRole(creature.Role)})")"
+								 Value="@_visibleCreatureGuids.Contains(creature.Guid)"
+								 ValueChanged="@((bool selected) => SetTrackedCreatureVisible(creature.Guid, selected))" />
+				}
+			</div>
+		</MudStack>
+	</MudPaper>;
+
+	private RenderFragment RenderDonutChart(string title, IReadOnlyList<StatSlice> values, string unit) => @<MudPaper Elevation="1" Class="pa-3 stats-chart-card">
+		<MudText Typo="Typo.subtitle1">@title</MudText>
+		@if (values.Count == 0)
+		{
+			<MudText Typo="Typo.body2" Color="Color.Secondary">No data.</MudText>
+		}
+		else
+		{
+			<div class="stats-donut-layout">
+				<div class="stats-donut" style="@BuildDonutStyle(values)">
+					<div class="stats-donut-center">@FormatAmount(values.Sum(value => value.Value))</div>
+				</div>
+				<div class="stats-legend">
+					@foreach (var value in values.Take(10))
+					{
+						<div class="stats-legend-row">
+							<span class="stats-legend-swatch" style="@($"background:{value.Color};")"></span>
+							<span class="stats-legend-label">@value.Label</span>
+							<span class="stats-legend-value">@FormatUnit(value.Value, unit)</span>
+						</div>
+					}
+				</div>
+			</div>
+		}
+	</MudPaper>;
+
+	private RenderFragment RenderBarChart(string title, IReadOnlyList<StatSlice> values, string unit, int maxItems) => @<MudPaper Elevation="1" Class="pa-3 stats-chart-card">
+		<MudText Typo="Typo.subtitle1">@title</MudText>
+		@{
+			var chartValues = values.Where(value => value.Value > 0).Take(maxItems).ToList();
+			var max = Math.Max(1, chartValues.Count == 0 ? 0 : chartValues.Max(value => value.Value));
+		}
+		@if (chartValues.Count == 0)
+		{
+			<MudText Typo="Typo.body2" Color="Color.Secondary">No data.</MudText>
+		}
+		else
+		{
+			<div class="stats-bar-list">
+				@foreach (var value in chartValues)
+				{
+					<div class="stats-bar-row">
+						<div class="stats-bar-label" title="@value.Label">@value.Label</div>
+						<div class="stats-bar-track">
+							<div class="stats-bar-fill" style="@($"width:{Math.Max(3, value.Value / max * 100).ToString("0.##", CultureInfo.InvariantCulture)}%; background:{value.Color};")"></div>
+						</div>
+						<div class="stats-bar-value">@FormatUnit(value.Value, unit)</div>
+					</div>
+				}
+			</div>
+		}
+	</MudPaper>;
+
+	private RenderFragment RenderRoleMatrix(Snapshot snapshot) => @<MudPaper Elevation="1" Class="pa-3 stats-chart-card">
+		<MudText Typo="Typo.subtitle1">Faction Damage Matchups</MudText>
+		@{
+			var roles = Enum.GetValues<CreatureRole>().Where(role => role != CreatureRole.Unknown).ToList();
+			var matrix = snapshot.DamageDone
+				.GroupBy(record => new { record.ActorRole, record.TargetRole })
+				.ToDictionary(group => (group.Key.ActorRole, group.Key.TargetRole), group => group.Sum(record => record.Amount));
+			var max = Math.Max(1, matrix.Values.DefaultIfEmpty(0).Max());
+		}
+		<div class="stats-matrix">
+			<div class="stats-matrix-corner">From / To</div>
+			@foreach (var role in roles)
+			{
+				<div class="stats-matrix-heading">@FormatRole(role)</div>
+			}
+			@foreach (var sourceRole in roles)
+			{
+				<div class="stats-matrix-heading">@FormatRole(sourceRole)</div>
+				@foreach (var targetRole in roles)
+				{
+					var amount = matrix.TryGetValue((sourceRole, targetRole), out var value) ? value : 0;
+					<div class="stats-matrix-cell">
+						<div class="stats-matrix-fill" style="@($"width:{Math.Max(0, amount / max * 100).ToString("0.##", CultureInfo.InvariantCulture)}%;")"></div>
+						<span>@FormatAmount(amount)</span>
+					</div>
+				}
+			}
+		</div>
+	</MudPaper>;
+
+	private RenderFragment RenderPlayerFocus(Snapshot snapshot) => @<MudPaper Elevation="1" Class="pa-3 stats-chart-card">
+		<MudText Typo="Typo.subtitle1">Player Combat Profile</MudText>
+		@{
+			var players = GetTrackedCreatures(snapshot)
+				.Where(creature => creature.Role == CreatureRole.Players)
+				.Select(creature => new
+				{
+					creature.Name,
+					Damage = snapshot.DamageDone.Where(record => record.ActorGuid == creature.Guid).Sum(record => record.Amount),
+					Taken = snapshot.DamageTaken.Where(record => record.TargetGuid == creature.Guid).Sum(record => record.Amount),
+					Healing = snapshot.HealingDone.Where(record => record.ActorGuid == creature.Guid).Sum(record => record.Amount)
+				})
+				.ToList();
+			var max = Math.Max(1, players.SelectMany(player => new[] { player.Damage, player.Taken, player.Healing }).DefaultIfEmpty(0).Max());
+		}
+		@if (players.Count == 0)
+		{
+			<MudText Typo="Typo.body2" Color="Color.Secondary">No player data.</MudText>
+		}
+		else
+		{
+			<div class="stats-profile-list">
+				@foreach (var player in players)
+				{
+					<div class="stats-profile-row">
+						<div class="stats-profile-name">@player.Name</div>
+						<div class="stats-profile-bars">
+							@RenderMiniBar("Dealt", player.Damage, max, "#2563eb")
+							@RenderMiniBar("Taken", player.Taken, max, "#dc2626")
+							@RenderMiniBar("Healed", player.Healing, max, "#16a34a")
+						</div>
+					</div>
+				}
+			</div>
+		}
+	</MudPaper>;
+
+	private static RenderFragment RenderMiniBar(string label, float value, float max, string color) => @<div class="stats-mini-bar-row">
+		<span>@label</span>
+		<div class="stats-mini-bar-track">
+			<div class="stats-mini-bar-fill" style="@($"width:{Math.Max(2, value / max * 100).ToString("0.##", CultureInfo.InvariantCulture)}%; background:{color};")"></div>
+		</div>
+		<strong>@FormatAmount(value)</strong>
+	</div>;
+
+	private void SetTrackedCreatureVisible(Guid guid, bool selected)
+	{
+		if (selected)
+		{
+			_visibleCreatureGuids.Add(guid);
+		}
+		else
+		{
+			_visibleCreatureGuids.Remove(guid);
+		}
+	}
+
+	private void SetAllTrackedCreatures(Snapshot snapshot, bool selected)
+	{
+		_visibleCreatureGuids.Clear();
+		if (!selected)
+		{
+			return;
+		}
+
+		foreach (var creature in GetTrackedCreatures(snapshot))
+		{
+			_visibleCreatureGuids.Add(creature.Guid);
+		}
+	}
+
+	private IReadOnlyList<StatSlice> GetDamageTypeValues(Snapshot snapshot)
+	{
+		return snapshot.DamageTaken
+			.GroupBy(record => record.DamageType)
+			.Select(group => new StatSlice(FormatDamageType(group.Key), group.Sum(record => record.Amount), DamageTypeColors.GetColor(group.Key)))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetDamageDoneRoleValues(Snapshot snapshot)
+	{
+		return snapshot.DamageDone
+			.GroupBy(record => record.ActorRole)
+			.Select(group => new StatSlice(FormatRole(group.Key), group.Sum(record => record.Amount), GetRoleColor(group.Key)))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetDamageTakenRoleValues(Snapshot snapshot)
+	{
+		return snapshot.DamageTaken
+			.GroupBy(record => record.TargetRole)
+			.Select(group => new StatSlice(FormatRole(group.Key), group.Sum(record => record.Amount), GetRoleColor(group.Key)))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetDamageDoneValues(Snapshot snapshot)
+	{
+		return snapshot.DamageDone
+			.GroupBy(record => record.ActorGuid?.ToString() ?? record.ActorName)
+			.Select(group => new StatSlice(group.First().ActorName, group.Sum(record => record.Amount), GetRoleColor(group.First().ActorRole), group.First().ActorGuid))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetDamageTakenValues(Snapshot snapshot)
+	{
+		return snapshot.DamageTaken
+			.GroupBy(record => record.TargetGuid)
+			.Select(group => new StatSlice(group.First().TargetName, group.Sum(record => record.Amount), GetRoleColor(group.First().TargetRole), group.Key))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetHealingDoneValues(Snapshot snapshot)
+	{
+		return snapshot.HealingDone
+			.GroupBy(record => record.ActorGuid?.ToString() ?? record.ActorName)
+			.Select(group => new StatSlice(group.First().ActorName, group.Sum(record => record.Amount), "#16a34a", group.First().ActorGuid))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetConditionTargetValues(Snapshot snapshot)
+	{
+		return snapshot.Conditions
+			.GroupBy(record => record.TargetGuid)
+			.Select(group => new StatSlice(group.First().TargetName, group.Count(), GetRoleColor(group.First().TargetRole), group.Key))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetCombatDamageValues(Snapshot snapshot)
+	{
+		return snapshot.DamageTaken
+			.GroupBy(record => record.CombatGuid)
+			.Select(group => new StatSlice(group.First().CombatName, group.Sum(record => record.Amount), "#2563eb"))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private IReadOnlyList<StatSlice> GetSessionDamageValues(Snapshot snapshot)
+	{
+		return snapshot.DamageTaken
+			.SelectMany(record => record.SessionNames.Select(sessionName => new { sessionName, record.Amount }))
+			.GroupBy(record => record.sessionName)
+			.Select(group => new StatSlice(group.Key, group.Sum(record => record.Amount), "#7c3aed"))
+			.OrderByDescending(value => value.Value)
+			.ThenBy(value => value.Label)
+			.ToList();
+	}
+
+	private string GetCreatureName(Guid guid, Combat combat)
+	{
+		return GetCombatCreatures(combat)
+			.Concat(GetCampaignCreatures())
+			.FirstOrDefault(creature => creature.GUID == guid)
+			?.DisplayName ?? "Unknown creature";
+	}
+
+	private CreatureRole GetCreatureRole(Guid guid, Combat combat)
+	{
+		if (combat.PlayerCharacters.Any(creature => creature.GUID == guid))
+		{
+			return CreatureRole.Players;
+		}
+
+		if (combat.Npcs.Any(creature => creature.GUID == guid))
+		{
+			return CreatureRole.NPCs;
+		}
+
+		if (combat.Enemies.Any(creature => creature.GUID == guid))
+		{
+			return CreatureRole.Enemies;
+		}
+
+		if (combat.Environmentals.Any(creature => creature.GUID == guid))
+		{
+			return CreatureRole.Environmentals;
+		}
+
+		if (Campaign?.PlayerCharacters.Any(creature => creature.GUID == guid) == true)
+		{
+			return CreatureRole.Players;
+		}
+
+		if (Campaign?.Npcs.Any(creature => creature.GUID == guid) == true)
+		{
+			return CreatureRole.NPCs;
+		}
+
+		if (Campaign?.Enemies.Any(creature => creature.GUID == guid) == true)
+		{
+			return CreatureRole.Enemies;
+		}
+
+		if (Campaign?.Environmentals.Any(creature => creature.GUID == guid) == true)
+		{
+			return CreatureRole.Environmentals;
+		}
+
+		return CreatureRole.Unknown;
+	}
+
+	private static IEnumerable<Creature> GetCombatCreatures(Combat combat)
+	{
+		return combat.PlayerCharacters
+			.Concat<Creature>(combat.Npcs)
+			.Concat(combat.Enemies)
+			.Concat(combat.Environmentals);
+	}
+
+	private IEnumerable<Creature> GetCampaignCreatures()
+	{
+		if (Campaign is null)
+		{
+			return [];
+		}
+
+		return Campaign.PlayerCharacters
+			.Concat<Creature>(Campaign.Npcs)
+			.Concat(Campaign.Enemies)
+			.Concat(Campaign.Environmentals);
+	}
+
+	private static string GetCombatName(Combat combat)
+	{
+		return string.IsNullOrWhiteSpace(combat.Name)
+			? $"Combat {combat.GUID.ToString()[..8]}"
+			: combat.Name;
+	}
+
+	private static IReadOnlyList<string> GetSessionNames(Combat combat)
+	{
+		return combat.Sessions.Count == 0
+			? ["Unassigned"]
+			: combat.Sessions.OrderBy(session => session.DateUtc).Select(session => string.IsNullOrWhiteSpace(session.Name) ? $"Session {session.GUID.ToString()[..8]}" : session.Name).ToList();
+	}
+
+	private static string BuildDonutStyle(IReadOnlyList<StatSlice> values)
+	{
+		var total = values.Sum(value => value.Value);
+		if (total <= 0)
+		{
+			return "background: var(--mud-palette-lines-default);";
+		}
+
+		var current = 0f;
+		var stops = new List<string>();
+		foreach (var value in values)
+		{
+			var next = current + value.Value / total * 360;
+			stops.Add($"{value.Color} {current.ToString("0.##", CultureInfo.InvariantCulture)}deg {next.ToString("0.##", CultureInfo.InvariantCulture)}deg");
+			current = next;
+		}
+
+		return $"background: conic-gradient({string.Join(", ", stops)});";
+	}
+
+	private static string FormatBiggestHit(DamageTakenRecord? record)
+	{
+		return record is null
+			? "None"
+			: $"{FormatAmount(record.Amount)} to {record.TargetName}";
+	}
+
+	private static string FormatStatLeader(StatSlice? value)
+	{
+		return value is null
+			? "None"
+			: $"{value.Label} ({FormatAmount(value.Value)})";
+	}
+
+	private static string FormatUnit(float value, string unit)
+	{
+		return unit == "count"
+			? ((int)value).ToString(CultureInfo.InvariantCulture)
+			: FormatAmount(value);
+	}
+
+	private static string FormatAmount(float amount)
+	{
+		return Math.Abs(amount % 1) < 0.001f
+			? ((int)amount).ToString(CultureInfo.InvariantCulture)
+			: amount.ToString("0.##", CultureInfo.InvariantCulture);
+	}
+
+	private static string FormatDamageType(DamageType damageType)
+	{
+		return damageType switch
+		{
+			DamageType.BludgeoningMagic => "Magic Bludgeoning",
+			DamageType.PiercingMagic => "Magic Piercing",
+			DamageType.SlashingMagic => "Magic Slashing",
+			_ => damageType.ToString()
+		};
+	}
+
+	private static string FormatRole(CreatureRole role)
+	{
+		return role switch
+		{
+			CreatureRole.Players => "Players",
+			CreatureRole.NPCs => "NPCs",
+			CreatureRole.Enemies => "Enemies",
+			CreatureRole.Environmentals => "Environment",
+			_ => "Unknown"
+		};
+	}
+
+	private static string GetRoleColor(CreatureRole role)
+	{
+		return role switch
+		{
+			CreatureRole.Players => "#2563eb",
+			CreatureRole.NPCs => "#16a34a",
+			CreatureRole.Enemies => "#dc2626",
+			CreatureRole.Environmentals => "#ca8a04",
+			_ => "#64748b"
+		};
+	}
+
+	private enum CreatureRole
+	{
+		Players,
+		NPCs,
+		Enemies,
+		Environmentals,
+		Unknown
+	}
+
+	private sealed record Snapshot(
+		int CombatCount,
+		int EntryCount,
+		int TurnCount,
+		IReadOnlyList<DamageDoneRecord> DamageDone,
+		IReadOnlyList<DamageTakenRecord> DamageTaken,
+		IReadOnlyList<HealingDoneRecord> HealingDone,
+		IReadOnlyList<HealingTakenRecord> HealingTaken,
+		IReadOnlyList<ConditionRecord> Conditions);
+
+	private sealed record DamageDoneRecord(Guid? ActorGuid, string ActorName, CreatureRole ActorRole, Guid TargetGuid, CreatureRole TargetRole, string TargetName, DamageType DamageType, float Amount, Guid CombatGuid, string CombatName, IReadOnlyList<string> SessionNames, int Turn);
+	private sealed record DamageTakenRecord(Guid TargetGuid, string TargetName, CreatureRole TargetRole, string ActorNames, DamageType DamageType, float Amount, Guid CombatGuid, string CombatName, IReadOnlyList<string> SessionNames, int Turn);
+	private sealed record HealingDoneRecord(Guid? ActorGuid, string ActorName, CreatureRole ActorRole, float Amount, Guid CombatGuid, string CombatName, IReadOnlyList<string> SessionNames, int Turn);
+	private sealed record HealingTakenRecord(Guid TargetGuid, string TargetName, CreatureRole TargetRole, float Amount, Guid CombatGuid, string CombatName, IReadOnlyList<string> SessionNames, int Turn);
+	private sealed record ConditionRecord(Guid? ActorGuid, string ActorName, Guid TargetGuid, string TargetName, CreatureRole TargetRole, Condition Condition, Guid CombatGuid, string CombatName, IReadOnlyList<string> SessionNames, int Turn);
+	private sealed record StatSlice(string Label, float Value, string Color, Guid? CreatureGuid = null);
+	private sealed record TrackedCreature(Guid Guid, string Name, CreatureRole Role);
+}

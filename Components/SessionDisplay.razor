@@ -1,4 +1,5 @@
-﻿@using CampaignTracker.Model.Creatures
+﻿@using CampaignTracker.Model.Combats
+@using CampaignTracker.Model.Creatures
 @using CampaignTracker.Model.Structure
 
 @inject IDialogService DialogService
@@ -6,7 +7,7 @@
 <MudStack Spacing="3" Class="detail-display">
 	<MudTabs Elevation="1" Rounded="true" Class="nested-tabs" TabPanelsClass="nested-tab-panels" Style="height: 100%; max-height: 100%;">
 		<MudTabPanel Text="Session" PanelClass="nested-tab-panel">
-			<MudStack Spacing="3" Class="home-panel-scroll">
+			<MudStack Spacing="3" Class="session-detail-panel">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
 					<MudText Typo="Typo.h5">Session #@SessionIndex</MudText>
 					<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
@@ -27,7 +28,7 @@
 					</MudItem>
 				</MudGrid>
 
-				<MudGrid Spacing="3">
+				<MudGrid Spacing="3" Class="session-selection-grid">
 					<MudItem xs="12" md="3">
 						<CreatureMultiSelect TCreature="PlayerCharacter"
 											 Title="Player Characters"
@@ -73,6 +74,12 @@
 			</MudStack>
 		</MudTabPanel>
 
+		<MudTabPanel Text="Stats" PanelClass="nested-tab-panel">
+			<CombatStatsDisplay ScopeTitle="Session Stats"
+								Campaign="Campaign"
+								Combats="SessionStatsCombats" />
+		</MudTabPanel>
+
 		<MudTabPanel Text="Options" PanelClass="nested-tab-panel">
 			<MudStack Spacing="2" Class="home-panel-scroll">
 				<MudText Typo="Typo.subtitle1">Danger Zone</MudText>
@@ -102,6 +109,8 @@
 	public EventCallback Changed { get; set; }
 
 	private Campaign Campaign => Session.Campaign;
+
+	private IReadOnlyCollection<Combat> SessionStatsCombats => Session.OrderedCombats.ToList();
 
 	private int SessionIndex
 	{

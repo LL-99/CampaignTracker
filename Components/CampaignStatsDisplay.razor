@@ -1,0 +1,15 @@
+﻿@using CampaignTracker.Model.Structure
+
+<MudPaper Elevation="1" Class="pa-3 home-fill-container">
+	<CombatStatsDisplay ScopeTitle="Campaign Stats"
+						Campaign="Campaign"
+						Combats="Campaign.Combats"
+						Detailed="true"
+						Interactive="true"
+						LimitNonPlayerIndividuals="true" />
+</MudPaper>
+
+@code {
+	[Parameter]
+	public Campaign Campaign { get; set; } = null!;
+}
