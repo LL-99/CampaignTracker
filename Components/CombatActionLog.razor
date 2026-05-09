@@ -1,7 +1,9 @@
 ﻿@using CampaignTracker.Model.Combats
 @using CampaignTracker.Model.Creatures
+@using Newtonsoft.Json
 
 @inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
 
 @if (Combat == null)
 {
@@ -15,6 +17,21 @@ else
 			{
 				var index = i;
 				var entry = Combat.ActionLog.Entries[i];
+
+				@if (ShouldRenderTurnDivider(index))
+				{
+					var turn = GetEntryTurn(entry);
+
+					<div @key="@($"turn-divider-{index}-{turn}")"
+						 class="@GetTurnDividerClass(index)"
+						 @ondragover:preventDefault="true"
+						 @ondragenter="@(() => DragOverTurnDivider(index))"
+						 @ondrop="@(() => DropEntryOnTurnDivider(index, turn))">
+						<span class="action-log-turn-divider-line"></span>
+						<span class="action-log-turn-divider-label">Turn @turn</span>
+						<span class="action-log-turn-divider-line"></span>
+					</div>
+				}
 
 				<div @key="entry"
 					 class="@GetEntryClass(index)"
@@ -54,6 +71,18 @@ else
 				</div>
 			}
 
+			@if (_draggedEntryIndex is not null && Combat.ActionLog.Entries.Any())
+			{
+				<div class="@GetNewTurnDividerClass()"
+					 @ondragover:preventDefault="true"
+					 @ondragenter="DragOverNewTurnDivider"
+					 @ondrop="DropEntryIntoNewTurn">
+					<span class="action-log-turn-divider-line"></span>
+					<span class="action-log-turn-divider-label">New Turn</span>
+					<span class="action-log-turn-divider-line"></span>
+				</div>
+			}
+
 			@if (!Combat.ActionLog.Entries.Any())
 			{
 				<MudText Typo="Typo.body2" Color="Color.Secondary">No action log entries yet.</MudText>
@@ -69,6 +98,19 @@ else
 					   OnClick="OpenPopup">
 				Add Log Entry
 			</MudButton>
+			<MudButton Variant="Variant.Outlined"
+					   Color="Color.Primary"
+					   StartIcon="@Icons.Material.Filled.LastPage"
+					   Disabled="@(!CanEndTurn)"
+					   OnClick="EndTurn">
+				End Turn
+			</MudButton>
+			@if (IsEndTurnPending)
+			{
+				<MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">
+					Next entry: Turn @Combat.ActionLog.CurrentTurn
+				</MudChip>
+			}
 			@if (HasWipEntry)
 			{
 				<MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">
@@ -135,6 +177,15 @@ else
 									   OnClick="DiscardButtonClicked">
 								Discard
 							</MudButton>
+							@if (_editingEntryIndex is not null)
+							{
+								<MudButton Variant="Variant.Text"
+										   Color="Color.Error"
+										   StartIcon="@Icons.Material.Filled.DeleteForever"
+										   OnClick="DeleteEntryClicked">
+									Delete Entry
+								</MudButton>
+							}
 						}
 
 						<MudSpacer />
@@ -231,13 +282,24 @@ else
 	private readonly HashSet<Guid> _selectedActorGuids = [];
 	private readonly List<ActionEffect> _wipEffects = [];
 	private EffectDraft _effectDraft = new();
+	private EntryEditSnapshot? _entryEditSnapshot;
+	private string? _effectDraftSnapshot;
 	private int? _editingEntryIndex;
 	private int? _editingEffectIndex;
 	private int? _draggedEntryIndex;
 	private int? _dragOverEntryIndex;
+	private int? _dragOverTurnDividerIndex;
+	private bool _dragOverNewTurnDivider;
 	private bool _damageTypeDialogOpen;
 
+	private const string DamageAmountInputId = "action-log-damage-amount";
+	private const string TemporaryHpAmountInputId = "action-log-temporary-hp-amount";
+	private const string HealAmountInputId = "action-log-heal-amount";
+
 	private bool HasWipEntry => _selectedActorGuids.Count > 0 || _wipEffects.Count > 0 || _editingEntryIndex is not null || _editingEffectIndex is not null;
+	private bool IsEndTurnPending => Combat?.ActionLog.Entries.Count > 0
+		&& Combat.ActionLog.CurrentTurn > GetLastTurnIndex();
+	private bool CanEndTurn => Combat?.ActionLog.Entries.Count > 0 && !IsEndTurnPending;
 
 	private bool IsEffectDetailPage => _page is ActionLogPopupPage.Damage
 		or ActionLogPopupPage.Condition
@@ -294,6 +356,7 @@ else
 		}
 
 		_activeCombatGuid = Combat?.GUID;
+		Combat?.ActionLog.EnsureTurnState();
 		ResetWipEntry();
 		_popupOpen = false;
 		_page = ActionLogPopupPage.Actors;
@@ -371,10 +434,13 @@ else
 				<MudNumericField T="float"
 								 @bind-Value="_effectDraft.Amount"
 								 Label="Damage"
+								 InputId="@DamageAmountInputId"
 								 Min="0"
 								 Variant="Variant.Outlined"
 								 Margin="Margin.Dense"
-								 Immediate="true" />
+								 Immediate="true"
+								 @onfocus="@(() => SelectInputText(DamageAmountInputId))"
+								 @onclick="@(() => SelectInputText(DamageAmountInputId))" />
 			</MudItem>
 			<MudItem xs="6" sm="4">
 				<MudButton Variant="Variant.Outlined"
@@ -420,11 +486,14 @@ else
 		<MudNumericField T="float"
 						 @bind-Value="_effectDraft.Amount"
 						 Label="Temporary HP"
+						 InputId="@TemporaryHpAmountInputId"
 						 Min="0"
 						 Variant="Variant.Outlined"
 						 Margin="Margin.Dense"
 						 Immediate="true"
-						 Class="action-log-amount-input" />
+						 Class="action-log-amount-input"
+						 @onfocus="@(() => SelectInputText(TemporaryHpAmountInputId))"
+						 @onclick="@(() => SelectInputText(TemporaryHpAmountInputId))" />
 		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
@@ -433,11 +502,14 @@ else
 		<MudNumericField T="float"
 						 @bind-Value="_effectDraft.Amount"
 						 Label="Heal"
+						 InputId="@HealAmountInputId"
 						 Min="0"
 						 Variant="Variant.Outlined"
 						 Margin="Margin.Dense"
 						 Immediate="true"
-						 Class="action-log-amount-input" />
+						 Class="action-log-amount-input"
+						 @onfocus="@(() => SelectInputText(HealAmountInputId))"
+						 @onclick="@(() => SelectInputText(HealAmountInputId))" />
 		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
@@ -461,48 +533,51 @@ else
 		@RenderCreatureButtonGroup("Players", Combat?.PlayerCharacters ?? [], _effectDraft.Targets)
 		@RenderCreatureButtonGroup("NPCs", Combat?.Npcs ?? [], _effectDraft.Targets)
 		@RenderCreatureButtonGroup("Enemies", Combat?.Enemies ?? [], _effectDraft.Targets)
-		@RenderCreatureButtonGroup("Environmentals", Combat?.Environmentals ?? [], _effectDraft.Targets)
+		@RenderCreatureButtonGroup("Environmentals", GetTargetableEnvironmentals(), _effectDraft.Targets)
 	</MudStack>;
 
-	private RenderFragment RenderCreatureButtonGroup(string title, IReadOnlyCollection<Creature> creatures, HashSet<Guid> selectedGuids) => @<MudStack Spacing="1">
-		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
-			<MudText Typo="Typo.subtitle2">@title</MudText>
-			@if (creatures.Count > 1)
-			{
-				<MudButton Variant="Variant.Text"
-						   Color="Color.Primary"
-						   Size="Size.Small"
-						   OnClick="@(() => SelectAll(creatures, selectedGuids))">
-					All
-				</MudButton>
-				<MudButton Variant="Variant.Text"
-						   Color="Color.Default"
-						   Size="Size.Small"
-						   OnClick="@(() => ClearAll(creatures, selectedGuids))">
-					None
-				</MudButton>
-			}
-		</MudStack>
-		@if (creatures.Count == 0)
-		{
-			<MudText Typo="Typo.body2" Color="Color.Secondary">No @title.ToLowerInvariant()</MudText>
+	private RenderFragment RenderCreatureButtonGroup(string title, IEnumerable<Creature> creatures, HashSet<Guid> selectedGuids) => @<text>
+		@{
+			var creatureList = creatures
+				.OrderBy(creature => creature.DisplayName)
+				.ToList();
 		}
-		else
+		@if (creatureList.Count > 0)
 		{
-			<div class="action-log-creature-buttons">
-				@foreach (var creature in creatures.OrderBy(creature => creature.DisplayName))
-				{
-					var selected = selectedGuids.Contains(creature.GUID);
-					<MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)"
-							   Color="@(selected ? Color.Primary : Color.Default)"
-							   Size="Size.Small"
-							   OnClick="@(() => ToggleSelected(creature.GUID, selectedGuids))">
-						@creature.DisplayName
-					</MudButton>
-				}
-			</div>
+			<MudStack Spacing="1">
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+					<MudText Typo="Typo.subtitle2">@title</MudText>
+					@if (creatureList.Count > 1)
+					{
+						<MudButton Variant="Variant.Text"
+								   Color="Color.Primary"
+								   Size="Size.Small"
+								   OnClick="@(() => SelectAll(creatureList, selectedGuids))">
+							All
+						</MudButton>
+						<MudButton Variant="Variant.Text"
+								   Color="Color.Default"
+								   Size="Size.Small"
+								   OnClick="@(() => ClearAll(creatureList, selectedGuids))">
+							None
+						</MudButton>
+					}
+				</MudStack>
+				<div class="action-log-creature-buttons">
+					@foreach (var creature in creatureList)
+					{
+						var selected = selectedGuids.Contains(creature.GUID);
+						<MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)"
+								   Color="@(selected ? Color.Primary : Color.Default)"
+								   Size="Size.Small"
+								   OnClick="@(() => ToggleSelected(creature.GUID, selectedGuids))">
+							@creature.DisplayName
+						</MudButton>
+					}
+				</div>
+			</MudStack>
 		}
-	</MudStack>;
+	</text>;
 
 	private RenderFragment RenderMultiplierButton(string label, float multiplier) => @<MudButton Variant="@(Math.Abs(_effectDraft.DamageMultiplier - multiplier) < 0.001f ? Variant.Filled : Variant.Outlined)"
 																							  Color="@(Math.Abs(_effectDraft.DamageMultiplier - multiplier) < 0.001f ? Color.Primary : Color.Default)"
@@ -520,6 +595,15 @@ else
 	{
 		if (_editingEntryIndex is not null)
 		{
+			if (!HasEntryEditChanges())
+			{
+				ResetWipEntry();
+				_popupOpen = false;
+				_damageTypeDialogOpen = false;
+				_page = ActionLogPopupPage.Actors;
+				return;
+			}
+
 			var shouldSave = await DialogService.ShowMessageBoxAsync(
 				"Save entry changes?",
 				"Save the edited action log entry before closing?",
@@ -581,12 +665,14 @@ else
 	{
 		_editingEffectIndex = null;
 		_effectDraft = new EffectDraft();
+		_effectDraftSnapshot = CreateEffectDraftSnapshot(_effectDraft);
 		_page = ActionLogPopupPage.EffectType;
 	}
 
 	private void SelectEffectType(EffectType effectType, bool advance)
 	{
 		_effectDraft.Type = effectType;
+		AddActorsAsDefaultTargets(effectType);
 
 		if (advance)
 		{
@@ -603,6 +689,7 @@ else
 
 		_editingEffectIndex = index;
 		_effectDraft = EffectDraft.FromEffect(_wipEffects[index]);
+		_effectDraftSnapshot = CreateEffectDraftSnapshot(_effectDraft);
 		_page = GetDetailPage(_effectDraft.Type);
 	}
 
@@ -619,6 +706,7 @@ else
 		_editingEntryIndex = index;
 		_selectedActorGuids.UnionWith(entry.Actors);
 		_wipEffects.AddRange(entry.Effects);
+		_entryEditSnapshot = CreateEntryEditSnapshot(_selectedActorGuids, _wipEffects);
 		_page = ActionLogPopupPage.EffectsOverview;
 		_popupOpen = true;
 	}
@@ -651,6 +739,7 @@ else
 
 		_editingEffectIndex = null;
 		_effectDraft = new EffectDraft();
+		_effectDraftSnapshot = null;
 		_page = ActionLogPopupPage.EffectsOverview;
 	}
 
@@ -660,6 +749,42 @@ else
 		{
 			SaveDraftEffect();
 		}
+	}
+
+	private bool HasEntryEditChanges()
+	{
+		if (_entryEditSnapshot is null)
+		{
+			return HasWipEntry;
+		}
+
+		if (_effectDraftSnapshot is not null && _effectDraftSnapshot != CreateEffectDraftSnapshot(_effectDraft))
+		{
+			return true;
+		}
+
+		return _entryEditSnapshot != CreateEntryEditSnapshot(_selectedActorGuids, _wipEffects);
+	}
+
+	private static EntryEditSnapshot CreateEntryEditSnapshot(IEnumerable<Guid> actors, IEnumerable<ActionEffect> effects)
+	{
+		return new EntryEditSnapshot(
+			string.Join("|", actors.OrderBy(actor => actor)),
+			JsonConvert.SerializeObject(effects, Formatting.None));
+	}
+
+	private static string CreateEffectDraftSnapshot(EffectDraft draft)
+	{
+		return JsonConvert.SerializeObject(new
+		{
+			draft.Type,
+			Targets = draft.Targets.OrderBy(target => target).ToArray(),
+			draft.Amount,
+			draft.DamageType,
+			draft.DamageMultiplier,
+			draft.Condition,
+			draft.Description
+		}, Formatting.None);
 	}
 
 	private void SaveEntry()
@@ -685,10 +810,47 @@ else
 		_page = ActionLogPopupPage.Actors;
 	}
 
+	private void EndTurn()
+	{
+		Combat?.ActionLog.EndTurn();
+	}
+
+	private async Task DeleteEntryClicked()
+	{
+		if (Combat is null || _editingEntryIndex is not int index || index < 0 || index >= Combat.ActionLog.Entries.Count)
+		{
+			return;
+		}
+
+		var shouldDelete = await DialogService.ShowMessageBoxAsync(
+			"Delete entry?",
+			"Delete this action log entry permanently?",
+			yesText: "Delete",
+			cancelText: "Cancel");
+
+		if (shouldDelete != true)
+		{
+			return;
+		}
+
+		Combat.ActionLog.Entries.RemoveAt(index);
+		Combat.ActionLog.EnsureTurnState();
+		ResetWipEntry();
+		_popupOpen = false;
+		_page = ActionLogPopupPage.Actors;
+	}
+
 	private async Task DiscardButtonClicked()
 	{
 		if (!HasWipEntry)
 		{
+			return;
+		}
+
+		if (_editingEntryIndex is not null && !HasEntryEditChanges())
+		{
+			ResetWipEntry();
+			_page = ActionLogPopupPage.Actors;
 			return;
 		}
 
@@ -710,6 +872,8 @@ else
 		_selectedActorGuids.Clear();
 		_wipEffects.Clear();
 		_effectDraft = new EffectDraft();
+		_entryEditSnapshot = null;
+		_effectDraftSnapshot = null;
 		_editingEntryIndex = null;
 		_editingEffectIndex = null;
 		_damageTypeDialogOpen = false;
@@ -719,6 +883,8 @@ else
 	{
 		_draggedEntryIndex = index;
 		_dragOverEntryIndex = index;
+		_dragOverTurnDividerIndex = null;
+		_dragOverNewTurnDivider = false;
 	}
 
 	private void DragOverEntry(int index)
@@ -726,10 +892,47 @@ else
 		if (_draggedEntryIndex is not null)
 		{
 			_dragOverEntryIndex = index;
+			_dragOverTurnDividerIndex = null;
+			_dragOverNewTurnDivider = false;
 		}
 	}
 
 	private void DropEntry(int targetIndex)
+	{
+		DropEntryAt(targetIndex, GetInheritedTurnForEntryDrop(targetIndex));
+	}
+
+	private void DragOverTurnDivider(int index)
+	{
+		if (_draggedEntryIndex is not null)
+		{
+			_dragOverEntryIndex = null;
+			_dragOverTurnDividerIndex = index;
+			_dragOverNewTurnDivider = false;
+		}
+	}
+
+	private void DropEntryOnTurnDivider(int targetIndex, int turn)
+	{
+		DropEntryAt(targetIndex, turn);
+	}
+
+	private void DragOverNewTurnDivider()
+	{
+		if (_draggedEntryIndex is not null)
+		{
+			_dragOverEntryIndex = null;
+			_dragOverTurnDividerIndex = null;
+			_dragOverNewTurnDivider = true;
+		}
+	}
+
+	private void DropEntryIntoNewTurn()
+	{
+		DropEntryAt(Combat?.ActionLog.Entries.Count ?? 0, GetNewTurnIndex());
+	}
+
+	private void DropEntryAt(int targetIndex, int turn)
 	{
 		if (Combat is null || _draggedEntryIndex is not int sourceIndex)
 		{
@@ -738,15 +941,24 @@ else
 		}
 
 		var entries = Combat.ActionLog.Entries;
-		if (sourceIndex < 0 || sourceIndex >= entries.Count || targetIndex < 0 || targetIndex >= entries.Count || sourceIndex == targetIndex)
+		if (sourceIndex < 0 || sourceIndex >= entries.Count || targetIndex < 0 || targetIndex > entries.Count)
 		{
 			EndDraggingEntry();
 			return;
 		}
 
+		var boundedTurn = Math.Max(1, turn);
 		var entry = entries[sourceIndex];
 		entries.RemoveAt(sourceIndex);
+		if (sourceIndex < targetIndex)
+		{
+			targetIndex--;
+		}
+
+		targetIndex = Math.Clamp(targetIndex, 0, entries.Count);
+		entry.Turn = boundedTurn;
 		entries.Insert(targetIndex, entry);
+		Combat.ActionLog.CurrentTurn = Math.Max(Combat.ActionLog.CurrentTurn, GetLastTurnIndex());
 		EndDraggingEntry();
 	}
 
@@ -754,6 +966,8 @@ else
 	{
 		_draggedEntryIndex = null;
 		_dragOverEntryIndex = null;
+		_dragOverTurnDividerIndex = null;
+		_dragOverNewTurnDivider = false;
 	}
 
 	private void OpenDamageTypeDialog()
@@ -770,6 +984,25 @@ else
 	{
 		_effectDraft.DamageType = damageType;
 		_damageTypeDialogOpen = false;
+	}
+
+	private async Task SelectInputText(string inputId)
+	{
+		await JSRuntime.InvokeVoidAsync("campaignTracker.selectInputText", inputId);
+	}
+
+	private void AddActorsAsDefaultTargets(EffectType effectType)
+	{
+		if (effectType is not (EffectType.TemporaryHP or EffectType.Heal or EffectType.Buff))
+		{
+			return;
+		}
+
+		var targetableGuids = GetTargetableCreatures()
+			.Select(creature => creature.GUID)
+			.ToHashSet();
+
+		_effectDraft.Targets.UnionWith(_selectedActorGuids.Where(targetableGuids.Contains));
 	}
 
 	private void ToggleSelected(Guid guid, HashSet<Guid> selectedGuids)
@@ -803,6 +1036,25 @@ else
 		return AllCombatCreatures
 			.Where(creature => guidSet.Contains(creature.GUID))
 			.OrderBy(creature => creature.DisplayName);
+	}
+
+	private IEnumerable<Environmental> GetTargetableEnvironmentals()
+	{
+		return Combat?.Environmentals.Where(environmental => environmental.HP.HasValue) ?? [];
+	}
+
+	private IEnumerable<Creature> GetTargetableCreatures()
+	{
+		if (Combat is null)
+		{
+			return [];
+		}
+
+		return Combat.PlayerCharacters
+			.Cast<Creature>()
+			.Concat(Combat.Npcs)
+			.Concat(Combat.Enemies)
+			.Concat(GetTargetableEnvironmentals());
 	}
 
 	private IEnumerable<Creature> AllCombatCreatures
@@ -986,6 +1238,94 @@ else
 			: $"border-color: {color}; color: {color};";
 	}
 
+	private bool ShouldRenderTurnDivider(int index)
+	{
+		if (Combat is null || index < 0 || index >= Combat.ActionLog.Entries.Count)
+		{
+			return false;
+		}
+
+		return index == 0
+			|| GetEntryTurn(Combat.ActionLog.Entries[index]) != GetEntryTurn(Combat.ActionLog.Entries[index - 1]);
+	}
+
+	private static int GetEntryTurn(ActionLogEntry entry)
+	{
+		return Math.Max(1, entry.Turn);
+	}
+
+	private int GetInheritedTurnForEntryDrop(int targetIndex)
+	{
+		if (Combat is null)
+		{
+			return 1;
+		}
+
+		var entries = Combat.ActionLog.Entries;
+		var sourceIndex = _draggedEntryIndex;
+		var entriesWithoutDragged = entries
+			.Where((_, index) => sourceIndex is null || index != sourceIndex)
+			.ToList();
+
+		if (sourceIndex is int source && source < targetIndex)
+		{
+			targetIndex--;
+		}
+
+		targetIndex = Math.Clamp(targetIndex, 0, entriesWithoutDragged.Count);
+
+		if (targetIndex > 0)
+		{
+			return GetEntryTurn(entriesWithoutDragged[targetIndex - 1]);
+		}
+
+		if (entriesWithoutDragged.Count > 0)
+		{
+			return GetEntryTurn(entriesWithoutDragged[0]);
+		}
+
+		return Math.Max(1, Combat.ActionLog.CurrentTurn);
+	}
+
+	private int GetNewTurnIndex()
+	{
+		return GetLastTurnIndex() + 1;
+	}
+
+	private int GetLastTurnIndex()
+	{
+		if (Combat is null)
+		{
+			return 1;
+		}
+
+		return Math.Max(1, Combat.ActionLog.Entries.LastOrDefault()?.Turn ?? Combat.ActionLog.CurrentTurn);
+	}
+
+	private string GetTurnDividerClass(int index)
+	{
+		var classes = "action-log-turn-divider";
+
+		if (_dragOverTurnDividerIndex == index)
+		{
+			classes += " is-drag-over";
+		}
+
+		return classes;
+	}
+
+	private string GetNewTurnDividerClass()
+	{
+		var classes = "action-log-turn-divider action-log-new-turn-divider";
+
+		if (_dragOverNewTurnDivider)
+		{
+			classes += " is-drag-over";
+		}
+
+		return classes;
+	}
+
 	private string GetEntryClass(int index)
 	{
 		var classes = "combat-action-log-entry";
@@ -1036,6 +1376,7 @@ else
 	}
 
 	private sealed record DamageSummaryGroup(float ActualDamage, DamageType DamageType, IReadOnlyList<Guid> Targets);
+	private sealed record EntryEditSnapshot(string ActorsKey, string EffectsJson);
 
 	private sealed class EffectDraft
 	{

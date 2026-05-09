@@ -30,5 +30,17 @@ window.campaignTracker = {
 
         input.value = "";
         input.click();
+    },
+
+    selectInputText(inputId) {
+        window.setTimeout(() => {
+            const input = document.getElementById(inputId);
+
+            if (!input || typeof input.select !== "function") {
+                return;
+            }
+
+            input.select();
+        }, 0);
     }
 };
