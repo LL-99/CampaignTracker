@@ -176,19 +176,47 @@
 					<MudGrid Spacing="2">
 						<MudItem xs="12" Class="d-flex justify-end">
 							<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
-								<MudButton Variant="Variant.Outlined"
-										   Color="Color.Primary"
-										   Size="Size.Small"
-										   OnClick="ExportButtonClicked"
-										   Disabled="@(DataService.Campaign is null)">
-									Export
-								</MudButton>
-								<MudButton Variant="Variant.Outlined"
-										   Color="Color.Tertiary"
-										   Size="Size.Small"
-										   OnClick="ImportButtonClicked">
-									Import
-								</MudButton>
+								<MudButtonGroup Variant="Variant.Outlined"
+												Color="Color.Primary"
+												Size="Size.Small">
+									<MudButton OnClick="SaveButtonClicked"
+											   Disabled="@(DataService.Campaign is null)">
+										Save
+									</MudButton>
+									<MudMenu Icon="@Icons.Material.Filled.ArrowDropDown"
+											 Color="Color.Primary"
+											 Size="Size.Small"
+											 Dense="true"
+											 Disabled="@(DataService.Campaign is null)"
+											 AriaLabel="Save options">
+										<MudMenuItem OnClick="ExportButtonClicked"
+													 Icon="@Icons.Material.Filled.ContentCopy"
+													 Disabled="@(DataService.Campaign is null)">
+											Export
+										</MudMenuItem>
+									</MudMenu>
+								</MudButtonGroup>
+								<MudButtonGroup Variant="Variant.Outlined"
+												Color="Color.Tertiary"
+												Size="Size.Small">
+									<MudButton OnClick="LoadButtonClicked">
+										Load
+									</MudButton>
+									<MudMenu Icon="@Icons.Material.Filled.ArrowDropDown"
+											 Color="Color.Tertiary"
+											 Size="Size.Small"
+											 Dense="true"
+											 AriaLabel="Load options">
+										<MudMenuItem OnClick="ImportButtonClicked"
+													 Icon="@Icons.Material.Filled.ContentPaste">
+											Import
+										</MudMenuItem>
+									</MudMenu>
+								</MudButtonGroup>
+								<InputFile id="campaign-load-input"
+										   style="display: none;"
+										   accept=".json,application/json"
+										   OnChange="LoadFileChanged" />
 								
 								<MudDivider Vertical Class="mx-2" />
 
@@ -213,6 +241,8 @@
 
 
 @code {
+	private const long MaxCampaignFileSize = 10 * 1024 * 1024;
+
 	private readonly HashSet<Guid> _expandedSessionGuids = [];
 
 	private async Task ExportButtonClicked()
@@ -229,6 +259,46 @@
 			DataService.TrySetCampaignString(json);
 		}
 		catch (JSException)
+		{
+		}
+	}
+
+	private async Task SaveButtonClicked()
+	{
+		try
+		{
+			await JSRuntime.InvokeAsync<bool>(
+				"campaignTracker.saveTextFile",
+				$"campaign-data-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json",
+				DataService.GetCampaignString(),
+				"application/json");
+		}
+		catch (JSException)
+		{
+		}
+	}
+
+	private async Task LoadButtonClicked()
+	{
+		await JSRuntime.InvokeVoidAsync("campaignTracker.openFileInput", "campaign-load-input");
+	}
+
+	private async Task LoadFileChanged(InputFileChangeEventArgs args)
+	{
+		try
+		{
+			await using var stream = args.File.OpenReadStream(MaxCampaignFileSize);
+			using var reader = new StreamReader(stream);
+			var json = await reader.ReadToEndAsync();
+
+			if (DataService.TrySetCampaignString(json))
+			{
+				LatestSel = null;
+				_expandedSessionGuids.Clear();
+				StateHasChanged();
+			}
+		}
+		catch (IOException)
 		{
 		}
 	}
