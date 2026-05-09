@@ -510,8 +510,33 @@ else
 		_popupOpen = true;
 	}
 
-	private void ClosePopup()
+	private async Task ClosePopup()
 	{
+		if (_editingEntryIndex is not null)
+		{
+			var shouldSave = await DialogService.ShowMessageBoxAsync(
+				"Save entry changes?",
+				"Save the edited action log entry before closing?",
+				yesText: "Save",
+				noText: "Discard",
+				cancelText: "Cancel");
+
+			if (shouldSave is null)
+			{
+				return;
+			}
+
+			if (shouldSave == true)
+			{
+				SaveCurrentEffectDraftIfComplete();
+				SaveEntry();
+				return;
+			}
+
+			ResetWipEntry();
+			_page = ActionLogPopupPage.Actors;
+		}
+
 		_popupOpen = false;
 		_damageTypeDialogOpen = false;
 	}
@@ -621,6 +646,14 @@ else
 		_editingEffectIndex = null;
 		_effectDraft = new EffectDraft();
 		_page = ActionLogPopupPage.EffectsOverview;
+	}
+
+	private void SaveCurrentEffectDraftIfComplete()
+	{
+		if (IsEffectDetailPage && CanSaveDraftEffect)
+		{
+			SaveDraftEffect();
+		}
 	}
 
 	private void SaveEntry()
