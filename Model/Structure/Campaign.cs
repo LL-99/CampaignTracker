@@ -12,6 +12,14 @@ namespace CampaignTracker.Model.Structure
         public List<PlayerCharacter> PlayerCharacters { get; set; } = [];
         public List<StaticCreature> Npcs { get; set; } = [];
         public List<StaticCreature> Enemies { get; set; } = [];
+        public List<Environmental> Environmentals { get; set; } = [Environmental.Gravity];
+
+        public void EnsureDefaultEnvironmentals()
+        {
+            Environmentals ??= [];
+            Environmentals.RemoveAll(environmental => environmental.GUID == Environmental.Gravity.GUID);
+            Environmentals.Add(Environmental.Gravity);
+        }
 
         public void RemoveSession(Session session)
         {
@@ -97,6 +105,31 @@ namespace CampaignTracker.Model.Structure
             foreach (var session in Sessions.ToList())
             {
                 session.RemoveEnemy(enemy);
+            }
+        }
+
+        public void AddEnvironmental(Environmental environmental)
+        {
+            AddCreature(Environmentals, environmental);
+        }
+
+        public void RemoveEnvironmental(Environmental environmental)
+        {
+            if (environmental.GUID == Environmental.Gravity.GUID)
+            {
+                return;
+            }
+
+            RemoveCreature(Environmentals, environmental);
+
+            foreach (var combat in Combats.ToList())
+            {
+                combat.RemoveEnvironmental(environmental);
+            }
+
+            foreach (var session in Sessions.ToList())
+            {
+                session.RemoveEnvironmental(environmental);
             }
         }
 

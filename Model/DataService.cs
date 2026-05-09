@@ -18,6 +18,7 @@ namespace CampaignTracker.Model
         public void ClearCampaign()
         {
             Campaign = new();
+            Campaign.EnsureDefaultEnvironmentals();
         }
 
         public bool TrySetCampaignString(string json)
@@ -46,6 +47,8 @@ namespace CampaignTracker.Model
 
         private static void InitCampaignReferences(Campaign campaign)
         {
+            campaign.EnsureDefaultEnvironmentals();
+
             foreach (var combat in campaign.Combats)
             {
                 combat.PostInit(campaign);

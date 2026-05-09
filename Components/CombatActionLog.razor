@@ -246,11 +246,12 @@ else
 
 	private RenderFragment RenderActorPage() => @<MudStack Spacing="3">
 		<MudText Typo="Typo.body2" Color="Color.Secondary">
-			Choose every creature that acted. Buttons stay selected until you change combat or discard the draft.
+			Choose every actor that acted. Buttons stay selected until you change combat or discard the draft.
 		</MudText>
 		@RenderCreatureButtonGroup("Players", Combat?.PlayerCharacters ?? [], _selectedActorGuids)
 		@RenderCreatureButtonGroup("NPCs", Combat?.Npcs ?? [], _selectedActorGuids)
 		@RenderCreatureButtonGroup("Enemies", Combat?.Enemies ?? [], _selectedActorGuids)
+		@RenderCreatureButtonGroup("Environmentals", Combat?.Environmentals ?? [], _selectedActorGuids)
 	</MudStack>;
 
 	private RenderFragment RenderEffectsOverviewPage() => @<MudStack Spacing="2">
@@ -398,6 +399,7 @@ else
 		@RenderCreatureButtonGroup("Players", Combat?.PlayerCharacters ?? [], _effectDraft.Targets)
 		@RenderCreatureButtonGroup("NPCs", Combat?.Npcs ?? [], _effectDraft.Targets)
 		@RenderCreatureButtonGroup("Enemies", Combat?.Enemies ?? [], _effectDraft.Targets)
+		@RenderCreatureButtonGroup("Environmentals", Combat?.Environmentals ?? [], _effectDraft.Targets)
 	</MudStack>;
 
 	private RenderFragment RenderCreatureButtonGroup(string title, IReadOnlyCollection<Creature> creatures, HashSet<Guid> selectedGuids) => @<MudStack Spacing="1">
@@ -629,7 +631,8 @@ else
 			return Combat.PlayerCharacters
 				.Cast<Creature>()
 				.Concat(Combat.Npcs)
-				.Concat(Combat.Enemies);
+				.Concat(Combat.Enemies)
+				.Concat(Combat.Environmentals);
 		}
 	}
 

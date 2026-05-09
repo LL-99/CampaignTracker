@@ -9,6 +9,7 @@ namespace CampaignTracker.Model.Structure
         public List<Guid> PlayerCharacterGUIDs { get; private set; } = [];
         public List<Guid> NpcGUIDs { get; private set; } = [];
         public List<Guid> EnemyGUIDs { get; private set; } = [];
+        public List<Guid> EnvironmentalGUIDs { get; private set; } = [Environmental.Gravity.GUID];
         public List<Guid> CombatGUIDs { get; private set; } = [];
         public List<SessionCombatReference> CombatReferences { get; private set; } = [];
         public string Name { get; set; } = string.Empty;
@@ -25,6 +26,9 @@ namespace CampaignTracker.Model.Structure
 
         [JsonIgnore]
         public List<StaticCreature> Enemies { get; private set; } = [];
+
+        [JsonIgnore]
+        public List<Environmental> Environmentals { get; private set; } = [Environmental.Gravity];
 
         [JsonIgnore]
         public List<Combat> Combats { get; private set; } = [];
@@ -62,6 +66,7 @@ namespace CampaignTracker.Model.Structure
             PlayerCharacters = [];
             Npcs = [];
             Enemies = [];
+            Environmentals = [];
             Combats = [];
 
             foreach (var combat in campaign.Combats.Where(combat => CombatGUIDs.Contains(combat.GUID) || combat.SessionGUIDs.Contains(GUID)))
@@ -84,6 +89,12 @@ namespace CampaignTracker.Model.Structure
             foreach (var enemy in campaign.Enemies.Where(enemy => EnemyGUIDs.Contains(enemy.GUID)))
             {
                 AddEnemy(enemy);
+            }
+
+            AddEnvironmental(Environmental.Gravity);
+            foreach (var environmental in campaign.Environmentals.Where(environmental => EnvironmentalGUIDs.Contains(environmental.GUID)))
+            {
+                AddEnvironmental(environmental);
             }
         }
 
@@ -194,6 +205,24 @@ namespace CampaignTracker.Model.Structure
             }
         }
 
+        public void AddEnvironmental(Environmental environmental)
+        {
+            AddCreature(Environmentals, EnvironmentalGUIDs, environmental);
+        }
+
+        public void RemoveEnvironmental(Environmental environmental)
+        {
+            if (environmental.GUID == Environmental.Gravity.GUID || !RemoveCreature(Environmentals, EnvironmentalGUIDs, environmental))
+            {
+                return;
+            }
+
+            foreach (var combat in Combats.ToList())
+            {
+                combat.RemoveEnvironmental(environmental);
+            }
+        }
+
         internal void AddCombatFromCombat(Combat combat)
         {
             AddCombatDirect(combat);
@@ -220,6 +249,8 @@ namespace CampaignTracker.Model.Structure
             NpcGUIDs.Clear();
             Enemies.Clear();
             EnemyGUIDs.Clear();
+            Environmentals.Clear();
+            EnvironmentalGUIDs.Clear();
             Combats.Clear();
             CombatGUIDs.Clear();
             CombatReferences.Clear();
@@ -264,6 +295,24 @@ namespace CampaignTracker.Model.Structure
             }
         }
 
+        internal void AddEnvironmentalFromCombat(Environmental environmental)
+        {
+            AddEnvironmental(environmental);
+        }
+
+        internal void RemoveEnvironmentalFromCombat(Combat combat, Environmental environmental)
+        {
+            if (environmental.GUID == Environmental.Gravity.GUID)
+            {
+                return;
+            }
+
+            if (!Combats.Any(relatedCombat => relatedCombat.GUID != combat.GUID && relatedCombat.Environmentals.Any(relatedEnvironmental => relatedEnvironmental.GUID == environmental.GUID)))
+            {
+                RemoveCreature(Environmentals, EnvironmentalGUIDs, environmental);
+            }
+        }
+
         private void AddCombatCreatures(Combat combat)
         {
             foreach (var playerCharacter in combat.PlayerCharacters)
@@ -279,6 +328,11 @@ namespace CampaignTracker.Model.Structure
             foreach (var enemy in combat.Enemies)
             {
                 AddEnemy(enemy);
+            }
+
+            foreach (var environmental in combat.Environmentals)
+            {
+                AddEnvironmental(environmental);
             }
         }
 
@@ -297,6 +351,11 @@ namespace CampaignTracker.Model.Structure
             foreach (var enemy in combat.Enemies)
             {
                 RemoveEnemyFromCombat(combat, enemy);
+            }
+
+            foreach (var environmental in combat.Environmentals)
+            {
+                RemoveEnvironmentalFromCombat(combat, environmental);
             }
         }
 

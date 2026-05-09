@@ -12,6 +12,7 @@ namespace CampaignTracker.Model.Combats
         public List<Guid> PlayerCharacterGUIDs { get; private set; } = [];
         public List<Guid> NpcGUIDs { get; private set; } = [];
         public List<Guid> EnemyGUIDs { get; private set; } = [];
+        public List<Guid> EnvironmentalGUIDs { get; private set; } = [Environmental.Gravity.GUID];
         public List<CombatPlayerCharacterStatConfiguration> PlayerCharacterStatConfigurations { get; private set; } = [];
 
         [JsonIgnore]
@@ -28,6 +29,9 @@ namespace CampaignTracker.Model.Combats
 
         [JsonIgnore]
         public List<StaticCreature> Enemies { get; private set; } = [];
+
+        [JsonIgnore]
+        public List<Environmental> Environmentals { get; private set; } = [Environmental.Gravity];
 
         public Combat()
         {
@@ -75,6 +79,10 @@ namespace CampaignTracker.Model.Combats
             NpcGUIDs = Npcs.Select(npc => npc.GUID).Distinct().ToList();
             Enemies = campaign.Enemies.Where(enemy => EnemyGUIDs.Contains(enemy.GUID)).ToList();
             EnemyGUIDs = Enemies.Select(enemy => enemy.GUID).Distinct().ToList();
+            AddEnvironmental(Environmental.Gravity);
+            Environmentals = campaign.Environmentals.Where(environmental => EnvironmentalGUIDs.Contains(environmental.GUID)).ToList();
+            EnvironmentalGUIDs = Environmentals.Select(environmental => environmental.GUID).Distinct().ToList();
+            AddEnvironmental(Environmental.Gravity);
         }
 
         public void AddSession(Session session)
@@ -212,6 +220,32 @@ namespace CampaignTracker.Model.Combats
             }
         }
 
+        public void AddEnvironmental(Environmental environmental)
+        {
+            if (!AddCreature(Environmentals, EnvironmentalGUIDs, environmental))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions)
+            {
+                session.AddEnvironmentalFromCombat(environmental);
+            }
+        }
+
+        public void RemoveEnvironmental(Environmental environmental)
+        {
+            if (environmental.GUID == Environmental.Gravity.GUID || !RemoveCreature(Environmentals, EnvironmentalGUIDs, environmental))
+            {
+                return;
+            }
+
+            foreach (var session in Sessions.ToList())
+            {
+                session.RemoveEnvironmentalFromCombat(this, environmental);
+            }
+        }
+
         internal void AddSessionFromSession(Session session)
         {
             AddSessionDirect(session);
@@ -233,6 +267,8 @@ namespace CampaignTracker.Model.Combats
             NpcGUIDs.Clear();
             Enemies.Clear();
             EnemyGUIDs.Clear();
+            Environmentals.Clear();
+            EnvironmentalGUIDs.Clear();
         }
 
         private void AddSessionDirect(Session session)
