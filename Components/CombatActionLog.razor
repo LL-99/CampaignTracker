@@ -11,9 +11,16 @@ else
 {
 	<MudStack Class="combat-action-log">
 		<MudStack Spacing="2" Class="combat-action-log-entries">
-			@foreach (var entry in Combat.ActionLog.Entries)
+			@for (int i = 0; i < Combat.ActionLog.Entries.Count; i++)
 			{
-				<div class="combat-action-log-entry">
+				var index = i;
+				var entry = Combat.ActionLog.Entries[i];
+
+				<div @key="entry"
+					 class="@GetEntryClass(index)"
+					 @ondragover:preventDefault="true"
+					 @ondragenter="@(() => DragOverEntry(index))"
+					 @ondrop="@(() => DropEntry(index))">
 					<div class="action-log-entry-actors">
 						@foreach (var actor in GetCreatures(entry.Actors))
 						{
@@ -31,6 +38,19 @@ else
 							</div>
 						}
 					</div>
+
+					<MudStack Spacing="1" Class="action-log-entry-controls">
+						<MudIconButton Icon="@Icons.Material.Filled.Edit"
+									   Size="Size.Small"
+									   aria-label="Edit entry"
+									   OnClick="@(() => EditEntry(index))" />
+						<MudIconButton Icon="@Icons.Material.Filled.DragIndicator"
+									   Size="Size.Small"
+									   aria-label="Move entry"
+									   draggable="true"
+									   @ondragstart="@(() => StartDraggingEntry(index))"
+									   @ondragend="EndDraggingEntry" />
+					</MudStack>
 				</div>
 			}
 
@@ -168,6 +188,37 @@ else
 			</MudPaper>
 		</div>
 	}
+
+	@if (_damageTypeDialogOpen)
+	{
+		<div class="action-log-damage-type-dialog-backdrop" @onclick="CloseDamageTypeDialog">
+			<div class="action-log-damage-type-dialog-wrap" @onclick:stopPropagation="true">
+				<MudPaper Elevation="10" Class="action-log-damage-type-dialog pa-4">
+					<MudStack Spacing="3">
+						<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+							<MudText Typo="Typo.h6">Damage Type</MudText>
+							<MudSpacer />
+							<MudIconButton Icon="@Icons.Material.Filled.Close"
+										   Size="Size.Small"
+										   OnClick="CloseDamageTypeDialog" />
+						</MudStack>
+						<div class="action-log-damage-type-grid">
+							@foreach (var damageType in Enum.GetValues<DamageType>())
+							{
+								<MudButton Variant="@(_effectDraft.DamageType == damageType ? Variant.Filled : Variant.Outlined)"
+										   Color="@(_effectDraft.DamageType == damageType ? Color.Primary : Color.Default)"
+										   Size="Size.Small"
+										   Style="@GetDamageTypeButtonStyle(damageType, _effectDraft.DamageType == damageType)"
+										   OnClick="@(() => SelectDamageType(damageType))">
+									@FormatDamageTypeLabel(damageType)
+								</MudButton>
+							}
+						</div>
+					</MudStack>
+				</MudPaper>
+			</div>
+		</div>
+	}
 }
 
 @code {
@@ -180,9 +231,13 @@ else
 	private readonly HashSet<Guid> _selectedActorGuids = [];
 	private readonly List<ActionEffect> _wipEffects = [];
 	private EffectDraft _effectDraft = new();
+	private int? _editingEntryIndex;
 	private int? _editingEffectIndex;
+	private int? _draggedEntryIndex;
+	private int? _dragOverEntryIndex;
+	private bool _damageTypeDialogOpen;
 
-	private bool HasWipEntry => _selectedActorGuids.Count > 0 || _wipEffects.Count > 0 || _editingEffectIndex is not null;
+	private bool HasWipEntry => _selectedActorGuids.Count > 0 || _wipEffects.Count > 0 || _editingEntryIndex is not null || _editingEffectIndex is not null;
 
 	private bool IsEffectDetailPage => _page is ActionLogPopupPage.Damage
 		or ActionLogPopupPage.Condition
@@ -213,7 +268,7 @@ else
 	private string PopupTitle => _page switch
 	{
 		ActionLogPopupPage.Actors => "Actors",
-		ActionLogPopupPage.EffectsOverview => "Effects",
+		ActionLogPopupPage.EffectsOverview => _editingEntryIndex is null ? "Effects" : "Edit Effects",
 		ActionLogPopupPage.EffectType => "Effect Type",
 		ActionLogPopupPage.Damage => "Damage",
 		ActionLogPopupPage.Condition => "Condition",
@@ -322,16 +377,17 @@ else
 								 Immediate="true" />
 			</MudItem>
 			<MudItem xs="6" sm="4">
-				<MudSelect T="DamageType"
-						   @bind-Value="_effectDraft.DamageType"
-						   Label="Type"
-						   Variant="Variant.Outlined"
-						   Margin="Margin.Dense">
-					@foreach (var damageType in Enum.GetValues<DamageType>())
-					{
-						<MudSelectItem T="DamageType" Value="@damageType">@damageType</MudSelectItem>
-					}
-				</MudSelect>
+				<MudStack Spacing="1">
+					<MudText Typo="Typo.caption" Color="Color.Secondary">Type</MudText>
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Default"
+							   FullWidth="true"
+							   Class="action-log-damage-type-button"
+							   Style="@GetDamageTypeButtonStyle(_effectDraft.DamageType, false)"
+							   OnClick="OpenDamageTypeDialog">
+						@FormatDamageTypeLabel(_effectDraft.DamageType)
+					</MudButton>
+				</MudStack>
 			</MudItem>
 			<MudItem xs="12" sm="4">
 				<MudStack Row="true" Spacing="1" Class="action-log-multiplier-buttons">
@@ -457,6 +513,7 @@ else
 	private void ClosePopup()
 	{
 		_popupOpen = false;
+		_damageTypeDialogOpen = false;
 	}
 
 	private void PreviousButtonClicked()
@@ -470,7 +527,9 @@ else
 		_page = _page switch
 		{
 			ActionLogPopupPage.EffectsOverview => ActionLogPopupPage.Actors,
-			ActionLogPopupPage.EffectType => ActionLogPopupPage.EffectsOverview,
+			ActionLogPopupPage.EffectType => _wipEffects.Count == 0 && _editingEffectIndex is null
+				? ActionLogPopupPage.Actors
+				: ActionLogPopupPage.EffectsOverview,
 			_ => _page
 		};
 	}
@@ -479,7 +538,9 @@ else
 	{
 		_page = _page switch
 		{
-			ActionLogPopupPage.Actors => ActionLogPopupPage.EffectsOverview,
+			ActionLogPopupPage.Actors => _wipEffects.Count == 0
+				? ActionLogPopupPage.EffectType
+				: ActionLogPopupPage.EffectsOverview,
 			ActionLogPopupPage.EffectType => GetDetailPage(_effectDraft.Type),
 			_ => _page
 		};
@@ -512,6 +573,23 @@ else
 		_editingEffectIndex = index;
 		_effectDraft = EffectDraft.FromEffect(_wipEffects[index]);
 		_page = GetDetailPage(_effectDraft.Type);
+	}
+
+	private void EditEntry(int index)
+	{
+		if (Combat is null || index < 0 || index >= Combat.ActionLog.Entries.Count)
+		{
+			return;
+		}
+
+		var entry = Combat.ActionLog.Entries[index];
+
+		ResetWipEntry();
+		_editingEntryIndex = index;
+		_selectedActorGuids.UnionWith(entry.Actors);
+		_wipEffects.AddRange(entry.Effects);
+		_page = ActionLogPopupPage.EffectsOverview;
+		_popupOpen = true;
 	}
 
 	private void RemoveEffect(int index)
@@ -552,7 +630,17 @@ else
 			return;
 		}
 
-		Combat.ActionLog.AddEntry(Combat.GUID, _selectedActorGuids, _wipEffects.ToArray());
+		if (_editingEntryIndex is int index && index >= 0 && index < Combat.ActionLog.Entries.Count)
+		{
+			var entry = Combat.ActionLog.Entries[index];
+			entry.Actors = _selectedActorGuids.ToArray();
+			entry.Effects = _wipEffects.ToArray();
+		}
+		else
+		{
+			Combat.ActionLog.AddEntry(Combat.GUID, _selectedActorGuids, _wipEffects.ToArray());
+		}
+
 		ResetWipEntry();
 		_popupOpen = false;
 		_page = ActionLogPopupPage.Actors;
@@ -583,7 +671,66 @@ else
 		_selectedActorGuids.Clear();
 		_wipEffects.Clear();
 		_effectDraft = new EffectDraft();
+		_editingEntryIndex = null;
 		_editingEffectIndex = null;
+		_damageTypeDialogOpen = false;
+	}
+
+	private void StartDraggingEntry(int index)
+	{
+		_draggedEntryIndex = index;
+		_dragOverEntryIndex = index;
+	}
+
+	private void DragOverEntry(int index)
+	{
+		if (_draggedEntryIndex is not null)
+		{
+			_dragOverEntryIndex = index;
+		}
+	}
+
+	private void DropEntry(int targetIndex)
+	{
+		if (Combat is null || _draggedEntryIndex is not int sourceIndex)
+		{
+			EndDraggingEntry();
+			return;
+		}
+
+		var entries = Combat.ActionLog.Entries;
+		if (sourceIndex < 0 || sourceIndex >= entries.Count || targetIndex < 0 || targetIndex >= entries.Count || sourceIndex == targetIndex)
+		{
+			EndDraggingEntry();
+			return;
+		}
+
+		var entry = entries[sourceIndex];
+		entries.RemoveAt(sourceIndex);
+		entries.Insert(targetIndex, entry);
+		EndDraggingEntry();
+	}
+
+	private void EndDraggingEntry()
+	{
+		_draggedEntryIndex = null;
+		_dragOverEntryIndex = null;
+	}
+
+	private void OpenDamageTypeDialog()
+	{
+		_damageTypeDialogOpen = true;
+	}
+
+	private void CloseDamageTypeDialog()
+	{
+		_damageTypeDialogOpen = false;
+	}
+
+	private void SelectDamageType(DamageType damageType)
+	{
+		_effectDraft.DamageType = damageType;
+		_damageTypeDialogOpen = false;
 	}
 
 	private void ToggleSelected(Guid guid, HashSet<Guid> selectedGuids)
@@ -761,9 +908,45 @@ else
 		return damageType.ToString().ToLowerInvariant();
 	}
 
+	private static string FormatDamageTypeLabel(DamageType damageType)
+	{
+		return damageType switch
+		{
+			DamageType.BludgeoningMagic => "Magic Bludgeoning",
+			DamageType.PiercingMagic => "Magic Piercing",
+			DamageType.SlashingMagic => "Magic Slashing",
+			_ => damageType.ToString()
+		};
+	}
+
 	private static string GetDamageTextStyle(DamageType damageType)
 	{
 		return $"color: {DamageTypeColors.GetColor(damageType)};";
+	}
+
+	private static string GetDamageTypeButtonStyle(DamageType damageType, bool selected)
+	{
+		var color = DamageTypeColors.GetColor(damageType);
+		return selected
+			? $"border-color: {color}; background-color: {color}; color: white;"
+			: $"border-color: {color}; color: {color};";
+	}
+
+	private string GetEntryClass(int index)
+	{
+		var classes = "combat-action-log-entry";
+
+		if (_draggedEntryIndex == index)
+		{
+			classes += " is-dragging";
+		}
+
+		if (_dragOverEntryIndex == index && _draggedEntryIndex != index)
+		{
+			classes += " is-drag-over";
+		}
+
+		return classes;
 	}
 
 	private static string FormatEffectType(EffectType effectType)
