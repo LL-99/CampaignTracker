@@ -15,7 +15,11 @@
         Psychic, 
         Radiant, 
         Slashing, 
-        Thunder
+        Thunder,
+
+        BludgeoningMagic,
+        PiercingMagic,
+        SlashingMagic,
     }
 
     public static class DamageTypeColors
