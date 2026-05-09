@@ -3,7 +3,7 @@ using CampaignTracker.Model.Creatures;
 using CampaignTracker.Model.Structure;
 using Newtonsoft.Json;
 
-namespace CampaignTracker.Model
+namespace CampaignTracker.Services
 {
     public class DataService
         : IDataService
