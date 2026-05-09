@@ -1,6 +1,8 @@
 ﻿@using CampaignTracker.Model.Creatures
 @using CampaignTracker.Model.Structure
 
+@inject IDialogService DialogService
+
 <MudTabs Elevation="1" Rounded="true" Class="nested-tabs" TabPanelsClass="nested-tab-panels" Style="height: 100%; max-height: 100%;">
 	<MudTabPanel Text="Player Characters" PanelClass="nested-tab-panel">
 		<MudStack Spacing="3" Class="home-panel-scroll">
@@ -14,7 +16,7 @@
 			</MudButton>
 
 			<MudGrid Spacing="2">
-				@foreach (var playerCharacter in Campaign.PlayerCharacters.OrderBy(playerCharacter => playerCharacter.Name).ToList())
+				@foreach (var playerCharacter in Campaign.PlayerCharacters.OrderBy(playerCharacter => playerCharacter.DisplayName).ToList())
 				{
 					<MudItem xs="12" md="6">
 						<MudPaper Elevation="1" Class="pa-3 campaign-config-card">
@@ -60,7 +62,7 @@
 	</MudTabPanel>
 
 	<MudTabPanel Text="Enemies" PanelClass="nested-tab-panel">
-		@StaticCreaturePanel(Campaign.Enemies, AddEnemy, Campaign.RemoveEnemy, "Add Enemy")
+		@StaticCreaturePanel(Campaign.Enemies, AddEnemy, Campaign.RemoveEnemy, "Add Enemy", OpenEnemyImportDialog)
 	</MudTabPanel>
 </MudTabs>
 
@@ -112,21 +114,60 @@
 		});
 	}
 
+	private async Task OpenEnemyImportDialog()
+	{
+		var parameters = new DialogParameters
+		{
+			["ExistingCreatureGuids"] = Campaign.Enemies.Select(enemy => enemy.GUID).ToHashSet()
+		};
+		var options = new DialogOptions
+		{
+			CloseOnEscapeKey = true,
+			FullWidth = true,
+			MaxWidth = MaxWidth.Large
+		};
+
+		var dialog = await DialogService.ShowAsync<StaticCreatureImportDialog>("Import Enemies", parameters, options);
+		var result = await dialog.Result;
+
+		if (result?.Canceled == false && result.Data is IReadOnlyCollection<StaticCreature> selectedCreatures)
+		{
+			foreach (var creature in selectedCreatures)
+			{
+				Campaign.AddEnemy(creature);
+			}
+		}
+	}
+
 	private RenderFragment StaticCreaturePanel(
 		IReadOnlyCollection<StaticCreature> creatures,
 		Action addCreature,
 		Action<StaticCreature> removeCreature,
-		string addButtonText) => @<MudStack Spacing="3" Class="home-panel-scroll">
-		<MudButton Variant="Variant.Filled"
-				   Color="Color.Primary"
-				   Size="Size.Small"
-				   StartIcon="@Icons.Material.Filled.Add"
-				   Class="campaign-config-add-button"
-				   OnClick="@addCreature">
-			@addButtonText
-		</MudButton>
+		string addButtonText,
+		Func<Task>? importCreatures = null) => @<MudStack Spacing="3" Class="home-panel-scroll">
+		<MudStack Row="true" Spacing="1" Class="flex-wrap">
+			<MudButton Variant="Variant.Filled"
+					   Color="Color.Primary"
+					   Size="Size.Small"
+					   StartIcon="@Icons.Material.Filled.Add"
+					   Class="campaign-config-add-button"
+					   OnClick="@addCreature">
+				@addButtonText
+			</MudButton>
+			@if (importCreatures is not null)
+			{
+				<MudButton Variant="Variant.Outlined"
+						   Color="Color.Primary"
+						   Size="Size.Small"
+						   StartIcon="@Icons.Material.Filled.FileDownload"
+						   Class="campaign-config-add-button"
+						   OnClick="@importCreatures">
+					Import
+				</MudButton>
+			}
+		</MudStack>
 
-		@foreach (var creature in creatures.OrderBy(creature => creature.Name).ToList())
+		@foreach (var creature in creatures.OrderBy(creature => creature.DisplayName).ToList())
 		{
 			<MudPaper Elevation="1" Class="pa-3">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">

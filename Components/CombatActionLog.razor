@@ -18,7 +18,7 @@ else
 						@foreach (var actor in GetCreatures(entry.Actors))
 						{
 							<MudChip T="string" Class="ma-0 action-log-actor-chip" Size="Size.Small">
-								@actor.Name
+								@actor.DisplayName
 							</MudChip>
 						}
 					</div>
@@ -258,7 +258,7 @@ else
 			<MudText Typo="Typo.subtitle2">Actors</MudText>
 			@foreach (var actor in GetCreatures(_selectedActorGuids))
 			{
-				<MudChip T="string" Size="Size.Small" Class="ma-0">@actor.Name</MudChip>
+				<MudChip T="string" Size="Size.Small" Class="ma-0">@actor.DisplayName</MudChip>
 			}
 		</MudStack>
 
@@ -426,14 +426,14 @@ else
 		else
 		{
 			<div class="action-log-creature-buttons">
-				@foreach (var creature in creatures.OrderBy(creature => creature.Name))
+				@foreach (var creature in creatures.OrderBy(creature => creature.DisplayName))
 				{
 					var selected = selectedGuids.Contains(creature.GUID);
 					<MudButton Variant="@(selected ? Variant.Filled : Variant.Outlined)"
 							   Color="@(selected ? Color.Primary : Color.Default)"
 							   Size="Size.Small"
 							   OnClick="@(() => ToggleSelected(creature.GUID, selectedGuids))">
-						@creature.Name
+						@creature.DisplayName
 					</MudButton>
 				}
 			</div>
@@ -614,7 +614,7 @@ else
 
 		return AllCombatCreatures
 			.Where(creature => guidSet.Contains(creature.GUID))
-			.OrderBy(creature => creature.Name);
+			.OrderBy(creature => creature.DisplayName);
 	}
 
 	private IEnumerable<Creature> AllCombatCreatures
@@ -699,7 +699,7 @@ else
 			var targets = targetGuids
 				.Select(guid => new
 				{
-					Name = GetCreatureFromGuid(guid)?.Name ?? "Unknown creature"
+					Name = GetCreatureFromGuid(guid)?.DisplayName ?? "Unknown creature"
 				})
 				.OrderBy(target => target.Name)
 				.ToList();
@@ -743,7 +743,7 @@ else
 
 	private string TargetSortName(Guid guid)
 	{
-		return GetCreatureFromGuid(guid)?.Name ?? "Unknown creature";
+		return GetCreatureFromGuid(guid)?.DisplayName ?? "Unknown creature";
 	}
 
 	private static string FormatAmount(float amount)

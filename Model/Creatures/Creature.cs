@@ -4,5 +4,7 @@
     {
         public abstract CreatureType Type { get; }
         public string Name { get; set; } = string.Empty;
+
+        public virtual string DisplayName => Name;
     }
 }

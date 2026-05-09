@@ -6,6 +6,7 @@
     public class StaticCreature : Creature
     {
         public override CreatureType Type => CreatureType.Static;
+        public override string DisplayName => string.IsNullOrWhiteSpace(Source) ? Name : (Name + " (" + Source + ")");
 
         public CreatureStats Stats { get; set; } = new();
 

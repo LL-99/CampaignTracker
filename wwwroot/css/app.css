@@ -114,6 +114,12 @@ code {
     overflow-y: auto;
 }
 
+.creature-import-list {
+    max-height: 55dvh;
+    min-height: 16rem;
+    overflow-y: auto;
+}
+
 .home-page {
     height: calc(100dvh - var(--mud-appbar-height) - 32px);
     min-height: 0;

@@ -42,7 +42,7 @@
 									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="combat-player-row">
 										<MudCheckBox T="bool"
 													 Dense="true"
-													 Label="@playerCharacter.Name"
+													 Label="@playerCharacter.DisplayName"
 													 Value="@isSelected"
 													 Class="combat-player-checkbox"
 													 ValueChanged="@((bool selected) => SetPlayerCharacterSelected(playerCharacter, selected))" />
@@ -148,31 +148,31 @@
 		.SelectMany(session => session.PlayerCharacters)
 		.GroupBy(playerCharacter => playerCharacter.GUID)
 		.Select(group => group.First())
-		.OrderBy(playerCharacter => playerCharacter.Name)
+		.OrderBy(playerCharacter => playerCharacter.DisplayName)
 		.ToList();
 
 	private IEnumerable<PlayerCharacter> FilteredPlayerCharacters => AvailablePlayerCharacters
-		.Where(playerCharacter => string.IsNullOrWhiteSpace(_playerFilter) || playerCharacter.Name.Contains(_playerFilter, StringComparison.OrdinalIgnoreCase));
+		.Where(playerCharacter => string.IsNullOrWhiteSpace(_playerFilter) || playerCharacter.DisplayName.Contains(_playerFilter, StringComparison.OrdinalIgnoreCase));
 
 	private IReadOnlyCollection<StaticCreature> AvailableNpcs => Combat.Sessions
 		.SelectMany(session => session.Npcs)
 		.GroupBy(npc => npc.GUID)
 		.Select(group => group.First())
-		.OrderBy(npc => npc.Name)
+		.OrderBy(npc => npc.DisplayName)
 		.ToList();
 
 	private IReadOnlyCollection<StaticCreature> AvailableEnemies => Combat.Sessions
 		.SelectMany(session => session.Enemies)
 		.GroupBy(enemy => enemy.GUID)
 		.Select(group => group.First())
-		.OrderBy(enemy => enemy.Name)
+		.OrderBy(enemy => enemy.DisplayName)
 		.ToList();
 
 	private static string EnemyText(StaticCreature enemy)
 	{
 		return enemy.ChallengeRating is null
-			? enemy.Name
-			: $"{enemy.Name} (CR {enemy.ChallengeRating.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+			? enemy.DisplayName
+			: $"{enemy.DisplayName} (CR {enemy.ChallengeRating.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
 	}
 
 	private bool IsPlayerCharacterSelected(PlayerCharacter playerCharacter)
