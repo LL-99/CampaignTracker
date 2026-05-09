@@ -377,17 +377,15 @@ else
 								 Immediate="true" />
 			</MudItem>
 			<MudItem xs="6" sm="4">
-				<MudStack Spacing="1">
-					<MudText Typo="Typo.caption" Color="Color.Secondary">Type</MudText>
-					<MudButton Variant="Variant.Outlined"
-							   Color="Color.Default"
-							   FullWidth="true"
-							   Class="action-log-damage-type-button"
-							   Style="@GetDamageTypeButtonStyle(_effectDraft.DamageType, false)"
-							   OnClick="OpenDamageTypeDialog">
-						@FormatDamageTypeLabel(_effectDraft.DamageType)
-					</MudButton>
-				</MudStack>
+				<MudButton Variant="Variant.Outlined"
+						   Color="Color.Default"
+						   FullWidth="true"
+						   Class="action-log-damage-type-button"
+						   Style="@GetDamageTypeButtonStyle(_effectDraft.DamageType, false)"
+						   OnClick="OpenDamageTypeDialog">
+					<span class="action-log-damage-type-label">Type</span>
+					<span class="action-log-damage-type-value">@FormatDamageTypeLabel(_effectDraft.DamageType)</span>
+				</MudButton>
 			</MudItem>
 			<MudItem xs="12" sm="4">
 				<MudStack Row="true" Spacing="1" Class="action-log-multiplier-buttons">
@@ -397,6 +395,7 @@ else
 				</MudStack>
 			</MudItem>
 		</MudGrid>
+		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
 
@@ -413,6 +412,7 @@ else
 				</MudButton>
 			}
 		</div>
+		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
 
@@ -425,6 +425,7 @@ else
 						 Margin="Margin.Dense"
 						 Immediate="true"
 						 Class="action-log-amount-input" />
+		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
 
@@ -437,18 +438,23 @@ else
 						 Margin="Margin.Dense"
 						 Immediate="true"
 						 Class="action-log-amount-input" />
+		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
 
 	private RenderFragment RenderBuffPage() => @<MudStack Spacing="3">
-		<MudTextField T="string"
-					  @bind-Value="_effectDraft.Description"
-					  Label="Buff note"
-					  Variant="Variant.Outlined"
-					  Margin="Margin.Dense"
-					  Immediate="true" />
+		@RenderNoteField()
 		@RenderTargetPicker()
 	</MudStack>;
+
+	private RenderFragment RenderNoteField() => @<MudTextField T="string"
+															   @bind-Value="_effectDraft.Description"
+															   Label="Note"
+															   Variant="Variant.Outlined"
+															   Margin="Margin.Dense"
+															   Immediate="true"
+															   Lines="2"
+															   Class="action-log-note-input" />;
 
 	private RenderFragment RenderTargetPicker() => @<MudStack Spacing="3">
 		<MudText Typo="Typo.subtitle2">Targets</MudText>
@@ -830,22 +836,22 @@ else
 			case ActionEffect_Condition condition:
 				<span>applied @condition.Condition to</span>
 				@RenderTargetChips(condition.Targets)
+				@RenderEffectNote(condition.Description)
 				break;
 			case ActionEffect_TemporaryHP temporaryHp:
 				<span>gave @FormatAmount(temporaryHp.TemporaryHPAmount) temporary HP to</span>
 				@RenderTargetChips(temporaryHp.Targets)
+				@RenderEffectNote(temporaryHp.Description)
 				break;
 			case ActionEffect_Heal heal:
 				<span>healed @FormatAmount(heal.HealAmount) HP on</span>
 				@RenderTargetChips(heal.Targets)
+				@RenderEffectNote(heal.Description)
 				break;
 			case ActionEffect_Buff buff:
 				<span>buffed</span>
 				@RenderTargetChips(buff.Targets)
-				@if (!string.IsNullOrWhiteSpace(buff.Description))
-				{
-					<span class="action-log-effect-note">@buff.Description</span>
-				}
+				@RenderEffectNote(buff.Description)
 				break;
 			default:
 				<span>@(effect.Description ?? effect.Type.ToString())</span>
@@ -875,7 +881,15 @@ else
 				</div>
 			}
 		}
+		@RenderEffectNote(GetDamageNote(damage))
 	</div>;
+
+	private static RenderFragment RenderEffectNote(string? note) => @<text>
+		@if (!string.IsNullOrWhiteSpace(note))
+		{
+			<span class="action-log-effect-note">@note</span>
+		}
+	</text>;
 
 	private RenderFragment RenderTargetChips(IEnumerable<Guid> targetGuids) => @<span class="action-log-target-chip-list">
 		@{
@@ -939,6 +953,13 @@ else
 	private static string FormatDamageType(DamageType damageType)
 	{
 		return damageType.ToString().ToLowerInvariant();
+	}
+
+	private static string? GetDamageNote(ActionEffect_Damage damage)
+	{
+		return !string.IsNullOrWhiteSpace(damage.Description)
+			? damage.Description
+			: damage.DamageInstances.FirstOrDefault(instance => !string.IsNullOrWhiteSpace(instance.Note))?.Note;
 	}
 
 	private static string FormatDamageTypeLabel(DamageType damageType)
@@ -1042,6 +1063,9 @@ else
 					draft.Amount = firstDamageInstance?.BaseDamage ?? 1;
 					draft.DamageType = firstDamageInstance?.DamageType ?? DamageType.Slashing;
 					draft.DamageMultiplier = firstDamageInstance?.DamageMultiplier ?? 1;
+					draft.Description = !string.IsNullOrWhiteSpace(damage.Description)
+						? damage.Description
+						: firstDamageInstance?.Note;
 					break;
 				case ActionEffect_Condition condition:
 					draft.Condition = condition.Condition;
@@ -1077,7 +1101,8 @@ else
 							Target = target,
 							BaseDamage = Amount,
 							DamageType = DamageType,
-							DamageMultiplier = DamageMultiplier
+							DamageMultiplier = DamageMultiplier,
+							Note = Description
 						})
 						.ToArray()
 				},
