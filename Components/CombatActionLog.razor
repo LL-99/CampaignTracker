@@ -921,7 +921,8 @@ else
 
 	private async Task DropEntry(int targetIndex)
 	{
-		await DropEntryAt(targetIndex, GetInheritedTurnForEntryDrop(targetIndex));
+		var insertionTargetIndex = GetEntryInsertionTargetIndex(targetIndex);
+		await DropEntryAt(insertionTargetIndex, GetInheritedTurnForEntryDrop(insertionTargetIndex));
 	}
 
 	private void DragOverTurnDivider(int index)
@@ -1281,6 +1282,16 @@ else
 	private static int GetEntryTurn(ActionLogEntry entry)
 	{
 		return Math.Max(1, entry.Turn);
+	}
+
+	private int GetEntryInsertionTargetIndex(int targetIndex)
+	{
+		if (Combat is null || targetIndex != Combat.ActionLog.Entries.Count - 1)
+		{
+			return targetIndex;
+		}
+
+		return targetIndex + 1;
 	}
 
 	private int GetInheritedTurnForEntryDrop(int targetIndex)
