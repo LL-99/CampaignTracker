@@ -10,6 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Subprojects\**" />
+    <Content Remove="Subprojects\**" />
+    <EmbeddedResource Remove="Subprojects\**" />
+    <None Remove="Subprojects\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.6" PrivateAssets="all" />
     <PackageReference Include="MudBlazor" Version="9.4.0" />
