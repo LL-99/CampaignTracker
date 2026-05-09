@@ -26,6 +26,7 @@
 							 Dense="true"
 							 Label="@GetItemText(creature)"
 							 Value="@IsSelected(creature)"
+							 Disabled="@IsDisabled(creature)"
 							 ValueChanged="@((bool selected) => SetSelected(creature, selected))" />
 			}
 		}
@@ -51,6 +52,9 @@
 	public Func<TCreature, string>? ItemText { get; set; }
 
 	[Parameter]
+	public Func<TCreature, bool>? ItemDisabled { get; set; }
+
+	[Parameter]
 	public EventCallback<TCreature> ItemAdded { get; set; }
 
 	[Parameter]
@@ -68,6 +72,11 @@
 	private string GetItemText(TCreature creature)
 	{
 		return ItemText?.Invoke(creature) ?? creature.DisplayName;
+	}
+
+	private bool IsDisabled(TCreature creature)
+	{
+		return ItemDisabled?.Invoke(creature) == true;
 	}
 
 	private async Task SetSelected(TCreature creature, bool selected)

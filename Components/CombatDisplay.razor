@@ -69,7 +69,7 @@
 						</MudStack>
 					</MudStack>
 				</MudItem>
-				<MudItem xs="12" md="3">
+				<MudItem xs="12" md="2">
 					<CreatureMultiSelect TCreature="StaticCreature"
 										 Title="NPCs"
 										 FilterLabel="Filter NPCs"
@@ -78,7 +78,7 @@
 										 ItemAdded="Combat.AddNpc"
 										 ItemRemoved="Combat.RemoveNpc" />
 				</MudItem>
-				<MudItem xs="12" md="3">
+				<MudItem xs="12" md="2">
 					<CreatureMultiSelect TCreature="StaticCreature"
 										 Title="Enemies"
 										 FilterLabel="Filter enemies"
@@ -87,6 +87,16 @@
 										 ItemText="EnemyText"
 										 ItemAdded="Combat.AddEnemy"
 										 ItemRemoved="Combat.RemoveEnemy" />
+				</MudItem>
+				<MudItem xs="12" md="2">
+					<CreatureMultiSelect TCreature="Environmental"
+										 Title="Environmentals"
+										 FilterLabel="Filter environmentals"
+										 Items="AvailableEnvironmentals"
+										 SelectedItems="Combat.Environmentals"
+										 ItemDisabled="IsFixedEnvironmental"
+										 ItemAdded="Combat.AddEnvironmental"
+										 ItemRemoved="Combat.RemoveEnvironmental" />
 				</MudItem>
 			</MudGrid>
 		</MudTabPanel>
@@ -168,11 +178,23 @@
 		.OrderBy(enemy => enemy.DisplayName)
 		.ToList();
 
+	private IReadOnlyCollection<Environmental> AvailableEnvironmentals => Combat.Sessions
+		.SelectMany(session => session.Environmentals)
+		.GroupBy(environmental => environmental.GUID)
+		.Select(group => group.First())
+		.OrderBy(environmental => environmental.DisplayName)
+		.ToList();
+
 	private static string EnemyText(StaticCreature enemy)
 	{
 		return enemy.ChallengeRating is null
 			? enemy.DisplayName
 			: $"{enemy.DisplayName} (CR {enemy.ChallengeRating.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+	}
+
+	private static bool IsFixedEnvironmental(Environmental environmental)
+	{
+		return environmental.GUID == Environmental.Gravity.GUID;
 	}
 
 	private bool IsPlayerCharacterSelected(PlayerCharacter playerCharacter)

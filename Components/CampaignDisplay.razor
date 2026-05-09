@@ -71,6 +71,10 @@
 			DuplicateEnemy,
 			IsSourcedCreature)
 	</MudTabPanel>
+
+	<MudTabPanel Text="Environmentals" PanelClass="nested-tab-panel">
+		@EnvironmentalPanel()
+	</MudTabPanel>
 </MudTabs>
 
 @code {
@@ -118,6 +122,15 @@
 			Name = "New Enemy",
 			Stats = new CreatureStats(10, [], []),
 			ChallengeRating = 1
+		});
+	}
+
+	private void AddEnvironmental()
+	{
+		Campaign.AddEnvironmental(new Environmental
+		{
+			Name = "New Environmental",
+			HP = null
 		});
 	}
 
@@ -226,6 +239,34 @@
 								   Color="Color.Error"
 								   Size="Size.Small"
 								   OnClick="@(() => removeCreature(creature))" />
+				</MudStack>
+			</MudPaper>
+		}
+	</MudStack>;
+
+	private RenderFragment EnvironmentalPanel() => @<MudStack Spacing="3" Class="home-panel-scroll">
+		<MudButton Variant="Variant.Filled"
+				   Color="Color.Primary"
+				   Size="Size.Small"
+				   StartIcon="@Icons.Material.Filled.Add"
+				   Class="campaign-config-add-button"
+				   OnClick="AddEnvironmental">
+			Add Environmental
+		</MudButton>
+
+		@foreach (var environmental in Campaign.Environmentals.OrderBy(environmental => environmental.DisplayName).ToList())
+		{
+			var isGravity = environmental.GUID == Environmental.Gravity.GUID;
+
+			<MudPaper @key="environmental.GUID" Elevation="1" Class="pa-3">
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+					<MudTextField @bind-Value="environmental.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isGravity" />
+					<MudNumericField T="float?" @bind-Value="environmental.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isGravity" />
+					<MudIconButton Icon="@Icons.Material.Filled.Delete"
+								   Color="Color.Error"
+								   Size="Size.Small"
+								   Disabled="@isGravity"
+								   OnClick="@(() => Campaign.RemoveEnvironmental(environmental))" />
 				</MudStack>
 			</MudPaper>
 		}
