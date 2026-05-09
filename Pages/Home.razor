@@ -386,6 +386,12 @@ else
 			: session.OrderedCombats.Count + 1;
 
 		session.AddCombat(combat, combatIndex);
+
+		foreach (var playerCharacter in session.PlayerCharacters)
+		{
+			combat.AddPlayerCharacter(playerCharacter);
+		}
+
 		LatestSel = CampaignElement.FromCombat(session, combat);
 		_expandedSessionGuids.Add(session.GUID);
 		await PersistCampaign();

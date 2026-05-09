@@ -12,7 +12,7 @@
 else
 {
 	<MudStack Class="combat-action-log">
-		<MudStack Spacing="2" Class="combat-action-log-entries">
+		<MudStack Spacing="2" Class="combat-action-log-entries" id="@EntriesElementId">
 			@for (int i = 0; i < Combat.ActionLog.Entries.Count; i++)
 			{
 				var index = i;
@@ -298,6 +298,7 @@ else
 	private const string DamageAmountInputId = "action-log-damage-amount";
 	private const string TemporaryHpAmountInputId = "action-log-temporary-hp-amount";
 	private const string HealAmountInputId = "action-log-heal-amount";
+	private string EntriesElementId => $"action-log-entries-{_activeCombatGuid ?? Guid.Empty}";
 
 	private bool HasWipEntry => _selectedActorGuids.Count > 0 || _wipEffects.Count > 0 || _editingEntryIndex is not null || _editingEffectIndex is not null;
 	private bool IsEndTurnPending => Combat?.ActionLog.IsEndTurnPending == true;
@@ -405,6 +406,10 @@ else
 						<MudIconButton Icon="@Icons.Material.Filled.Edit"
 									   Size="Size.Small"
 									   OnClick="@(() => EditEffect(index))" />
+						<MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+									   Size="Size.Small"
+									   aria-label="Duplicate effect"
+									   OnClick="@(() => DuplicateEffect(index))" />
 						<MudIconButton Icon="@Icons.Material.Filled.Delete"
 									   Size="Size.Small"
 									   Color="Color.Error"
@@ -721,6 +726,16 @@ else
 		}
 	}
 
+	private void DuplicateEffect(int index)
+	{
+		if (index < 0 || index >= _wipEffects.Count)
+		{
+			return;
+		}
+
+		_wipEffects.Insert(index + 1, CloneEffect(_wipEffects[index]));
+	}
+
 	private void SaveDraftEffect()
 	{
 		if (!CanSaveDraftEffect)
@@ -885,12 +900,13 @@ else
 		_damageTypeDialogOpen = false;
 	}
 
-	private void StartDraggingEntry(int index)
+	private async Task StartDraggingEntry(int index)
 	{
 		_draggedEntryIndex = index;
 		_dragOverEntryIndex = index;
 		_dragOverTurnDividerIndex = null;
 		_dragOverNewTurnDivider = false;
+		await JSRuntime.InvokeVoidAsync("campaignTracker.actionLogAutoScroll.start", EntriesElementId);
 	}
 
 	private void DragOverEntry(int index)
@@ -1373,6 +1389,60 @@ else
 			EffectType.Heal => ActionLogPopupPage.Heal,
 			EffectType.Buff => ActionLogPopupPage.Buff,
 			_ => ActionLogPopupPage.EffectType
+		};
+	}
+
+	private static ActionEffect CloneEffect(ActionEffect effect)
+	{
+		return effect switch
+		{
+			ActionEffect_Damage damage => new ActionEffect_Damage
+			{
+				Type = EffectType.Damage,
+				Description = damage.Description,
+				DamageInstances = damage.DamageInstances
+					.Select(instance => new ActionEffect_DamageEntry
+					{
+						Target = instance.Target,
+						DamageType = instance.DamageType,
+						BaseDamage = instance.BaseDamage,
+						DamageMultiplier = instance.DamageMultiplier,
+						Note = instance.Note
+					})
+					.ToArray()
+			},
+			ActionEffect_Condition condition => new ActionEffect_Condition
+			{
+				Type = EffectType.Condition,
+				Description = condition.Description,
+				Condition = condition.Condition,
+				Targets = condition.Targets.ToArray()
+			},
+			ActionEffect_TemporaryHP temporaryHp => new ActionEffect_TemporaryHP
+			{
+				Type = EffectType.TemporaryHP,
+				Description = temporaryHp.Description,
+				TemporaryHPAmount = temporaryHp.TemporaryHPAmount,
+				Targets = temporaryHp.Targets.ToArray()
+			},
+			ActionEffect_Heal heal => new ActionEffect_Heal
+			{
+				Type = EffectType.Heal,
+				Description = heal.Description,
+				HealAmount = heal.HealAmount,
+				Targets = heal.Targets.ToArray()
+			},
+			ActionEffect_Buff buff => new ActionEffect_Buff
+			{
+				Type = EffectType.Buff,
+				Description = buff.Description,
+				Targets = buff.Targets.ToArray()
+			},
+			_ => new ActionEffect
+			{
+				Type = effect.Type,
+				Description = effect.Description
+			}
 		};
 	}
 

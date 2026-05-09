@@ -1,4 +1,87 @@
 window.campaignTracker = {
+    actionLogAutoScroll: {
+        active: false,
+        container: null,
+        pointerY: 0,
+        frameId: null,
+        handleDragOver: null,
+        handleStop: null,
+
+        start(containerId) {
+            const autoScroll = window.campaignTracker.actionLogAutoScroll;
+            autoScroll.stop();
+
+            const container = document.getElementById(containerId);
+
+            if (!container) {
+                return;
+            }
+
+            const rect = container.getBoundingClientRect();
+            autoScroll.active = true;
+            autoScroll.container = container;
+            autoScroll.pointerY = rect.top + rect.height / 2;
+            autoScroll.handleDragOver = event => {
+                autoScroll.pointerY = event.clientY;
+            };
+            autoScroll.handleStop = () => autoScroll.stop();
+
+            document.addEventListener("dragover", autoScroll.handleDragOver, true);
+            document.addEventListener("drop", autoScroll.handleStop, true);
+            document.addEventListener("dragend", autoScroll.handleStop, true);
+            autoScroll.scrollLoop();
+        },
+
+        scrollLoop() {
+            const autoScroll = window.campaignTracker.actionLogAutoScroll;
+
+            if (!autoScroll.active || !autoScroll.container) {
+                autoScroll.frameId = null;
+                return;
+            }
+
+            const rect = autoScroll.container.getBoundingClientRect();
+            const threshold = Math.min(72, Math.max(32, rect.height / 4));
+            const maxStep = 18;
+            let scrollStep = 0;
+
+            if (autoScroll.pointerY < rect.top + threshold) {
+                scrollStep = -maxStep * Math.min(1, (rect.top + threshold - autoScroll.pointerY) / threshold);
+            } else if (autoScroll.pointerY > rect.bottom - threshold) {
+                scrollStep = maxStep * Math.min(1, (autoScroll.pointerY - (rect.bottom - threshold)) / threshold);
+            }
+
+            if (scrollStep !== 0) {
+                autoScroll.container.scrollTop += scrollStep;
+            }
+
+            autoScroll.frameId = window.requestAnimationFrame(() => autoScroll.scrollLoop());
+        },
+
+        stop() {
+            const autoScroll = window.campaignTracker.actionLogAutoScroll;
+
+            if (autoScroll.handleDragOver) {
+                document.removeEventListener("dragover", autoScroll.handleDragOver, true);
+            }
+
+            if (autoScroll.handleStop) {
+                document.removeEventListener("drop", autoScroll.handleStop, true);
+                document.removeEventListener("dragend", autoScroll.handleStop, true);
+            }
+
+            if (autoScroll.frameId) {
+                window.cancelAnimationFrame(autoScroll.frameId);
+            }
+
+            autoScroll.active = false;
+            autoScroll.container = null;
+            autoScroll.frameId = null;
+            autoScroll.handleDragOver = null;
+            autoScroll.handleStop = null;
+        }
+    },
+
     indexedDb: {
         databaseName: "CampaignTracker",
         databaseVersion: 1,
