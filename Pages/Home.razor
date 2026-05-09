@@ -106,20 +106,26 @@
 							}
 						</MudStack>
 						<MudDivider />
-						<MudStack Row="true" Spacing="1" Class="pa-2 flex-wrap">
+						<MudStack Row="true" Spacing="1" Class="home-content-actions">
 							<MudButton Variant="Variant.Outlined"
 									   Color="Color.Primary"
 									   Size="Size.Small"
+									   Class="home-content-action-button"
 									   StartIcon="@Icons.Material.Filled.Add"
 									   OnClick="AddSessionButtonClicked"
+									   title="Add Session"
+									   aria-label="Add Session"
 									   Disabled="@(DataService.Campaign is null)">
 								Add Session
 							</MudButton>
 							<MudButton Variant="Variant.Filled"
 									   Color="Color.Primary"
 									   Size="Size.Small"
+									   Class="home-content-action-button"
 									   StartIcon="@Icons.Material.Filled.Add"
 									   OnClick="AddCombatButtonClicked"
+									   title="Add Combat"
+									   aria-label="Add Combat"
 									   Disabled="@(!CanAddCombat)">
 								Add Combat
 							</MudButton>
@@ -255,9 +261,11 @@
 				? DateTime.UtcNow
 				: campaign.Sessions.Max(session => session.DateUtc));
 
+		var sessionName = $"Session {campaign.Sessions.Count + 1}";
+
 		var session = new Session(campaign)
 		{
-			Name = $"Session {campaign.Sessions.Count + 1}",
+			Name = sessionName,
 			DateUtc = GetNextFreeSessionDate(campaign, baseDate)
 		};
 
@@ -272,9 +280,11 @@
 			return;
 		}
 
+		var combatName = $"Combat {campaign.Combats.Count + 1}";
+
 		var combat = new Combat(campaign)
 		{
-			Name = $"Combat {campaign.Combats.Count + 1}",
+			Name = combatName,
 			ActionLog = new ActionLog()
 		};
 

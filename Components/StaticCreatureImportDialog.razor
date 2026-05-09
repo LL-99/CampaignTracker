@@ -10,7 +10,7 @@
 	<DialogContent>
 		<MudStack Spacing="2">
 			<MudTextField T="string"
-						  @bind-Value="_filter"
+						  @bind-Value="Filter"
 						  Label="Filter creatures"
 						  Variant="Variant.Outlined"
 						  Margin="Margin.Dense"
@@ -30,13 +30,13 @@
 			{
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
 					<MudText Typo="Typo.body2" Color="Color.Secondary">
-						@FilteredCreatures.Count() of @_creatures.Count creatures
+						@_filteredCreatures.Count of @_creatures.Count creatures
 					</MudText>
 					<MudSpacer />
 					<MudButton Variant="Variant.Text"
 							   Color="Color.Primary"
 							   Size="Size.Small"
-							   Disabled="@(!FilteredCreatures.Any(CanImport))"
+							   Disabled="@(!_filteredCreatures.Any(CanImport))"
 							   OnClick="SelectFilteredCreatures">
 						Select Filtered
 					</MudButton>
@@ -50,21 +50,20 @@
 				</MudStack>
 
 				<MudStack Spacing="0" Class="creature-import-list">
-					@if (!FilteredCreatures.Any())
+					@if (_filteredCreatures.Count == 0)
 					{
 						<MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">No matching creatures</MudText>
 					}
 					else
 					{
-						@foreach (var creature in FilteredCreatures)
-						{
+						<Virtualize Items="@_filteredCreatures" Context="creature" ItemSize="36" OverscanCount="8">
 							<MudCheckBox T="bool"
 										 Dense="true"
 										 Label="@CreatureText(creature)"
 										 Value="@(IsSelected(creature) || IsAlreadyImported(creature))"
 										 Disabled="@IsAlreadyImported(creature)"
 										 ValueChanged="@((bool selected) => SetSelected(creature, selected))" />
-						}
+						</Virtualize>
 					}
 				</MudStack>
 			}
@@ -89,6 +88,7 @@
 
 	private readonly HashSet<Guid> _selectedCreatureGuids = [];
 	private List<StaticCreature> _creatures = [];
+	private List<StaticCreature> _filteredCreatures = [];
 	private string _filter = string.Empty;
 	private bool _isLoading = true;
 	private string? _loadError;
@@ -99,9 +99,20 @@
 	[Parameter]
 	public IReadOnlyCollection<Guid> ExistingCreatureGuids { get; set; } = [];
 
-	private IEnumerable<StaticCreature> FilteredCreatures => _creatures
-		.Where(creature => string.IsNullOrWhiteSpace(_filter) || CreatureText(creature).Contains(_filter, StringComparison.OrdinalIgnoreCase))
-		.OrderBy(creature => creature.DisplayName);
+	private string Filter
+	{
+		get => _filter;
+		set
+		{
+			if (_filter == value)
+			{
+				return;
+			}
+
+			_filter = value;
+			UpdateFilteredCreatures();
+		}
+	}
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -109,6 +120,7 @@
 		{
 			var json = await HttpClient.GetStringAsync(CreatureDataPath);
 			_creatures = JsonConvert.DeserializeObject<List<StaticCreature>>(json) ?? [];
+			UpdateFilteredCreatures();
 		}
 		catch (Exception ex)
 		{
@@ -154,7 +166,7 @@
 
 	private void SelectFilteredCreatures()
 	{
-		foreach (var creature in FilteredCreatures.Where(CanImport))
+		foreach (var creature in _filteredCreatures.Where(CanImport))
 		{
 			_selectedCreatureGuids.Add(creature.GUID);
 		}
@@ -178,6 +190,14 @@
 	private void Cancel()
 	{
 		MudDialog.Cancel();
+	}
+
+	private void UpdateFilteredCreatures()
+	{
+		_filteredCreatures = _creatures
+			.Where(creature => string.IsNullOrWhiteSpace(_filter) || CreatureText(creature).Contains(_filter, StringComparison.OrdinalIgnoreCase))
+			.OrderBy(creature => creature.DisplayName)
+			.ToList();
 	}
 
 	private static string CreatureText(StaticCreature creature)

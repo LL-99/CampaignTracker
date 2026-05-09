@@ -62,7 +62,14 @@
 	</MudTabPanel>
 
 	<MudTabPanel Text="Enemies" PanelClass="nested-tab-panel">
-		@StaticCreaturePanel(Campaign.Enemies, AddEnemy, Campaign.RemoveEnemy, "Add Enemy", OpenEnemyImportDialog)
+		@StaticCreaturePanel(
+			Campaign.Enemies,
+			AddEnemy,
+			Campaign.RemoveEnemy,
+			"Add Enemy",
+			OpenEnemyImportDialog,
+			DuplicateEnemy,
+			IsSourcedCreature)
 	</MudTabPanel>
 </MudTabs>
 
@@ -139,12 +146,40 @@
 		}
 	}
 
+	private void DuplicateEnemy(StaticCreature enemy)
+	{
+		Campaign.AddEnemy(CloneStaticCreature(enemy, clearSource: IsSourcedCreature(enemy)));
+	}
+
+	private static bool IsSourcedCreature(StaticCreature creature)
+	{
+		return !string.IsNullOrWhiteSpace(creature.Source);
+	}
+
+	private static StaticCreature CloneStaticCreature(StaticCreature creature, bool clearSource)
+	{
+		return new StaticCreature
+		{
+			Name = creature.Name,
+			Stats = new CreatureStats
+			{
+				HP = creature.Stats.HP,
+				Resistances = creature.Stats.Resistances.ToArray(),
+				Vulnerabilities = creature.Stats.Vulnerabilities.ToArray()
+			},
+			ChallengeRating = creature.ChallengeRating,
+			Source = clearSource ? null : creature.Source
+		};
+	}
+
 	private RenderFragment StaticCreaturePanel(
 		IReadOnlyCollection<StaticCreature> creatures,
 		Action addCreature,
 		Action<StaticCreature> removeCreature,
 		string addButtonText,
-		Func<Task>? importCreatures = null) => @<MudStack Spacing="3" Class="home-panel-scroll">
+		Func<Task>? importCreatures = null,
+		Action<StaticCreature>? duplicateCreature = null,
+		Func<StaticCreature, bool>? isReadOnly = null) => @<MudStack Spacing="3" Class="home-panel-scroll">
 		<MudStack Row="true" Spacing="1" Class="flex-wrap">
 			<MudButton Variant="Variant.Filled"
 					   Color="Color.Primary"
@@ -169,11 +204,24 @@
 
 		@foreach (var creature in creatures.OrderBy(creature => creature.DisplayName).ToList())
 		{
+			var isReadOnlyCreature = isReadOnly?.Invoke(creature) == true;
+
 			<MudPaper Elevation="1" Class="pa-3">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
-					<MudTextField @bind-Value="creature.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-					<MudNumericField T="float" @bind-Value="creature.Stats.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
-					<MudNumericField T="float?" @bind-Value="creature.ChallengeRating" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					<MudTextField @bind-Value="creature.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
+					@if (IsSourcedCreature(creature))
+					{
+						<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@creature.Source</MudChip>
+					}
+					<MudNumericField T="float" @bind-Value="creature.Stats.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
+					<MudNumericField T="float?" @bind-Value="creature.ChallengeRating" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
+					@if (duplicateCreature is not null)
+					{
+						<MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+									   Color="Color.Default"
+									   Size="Size.Small"
+									   OnClick="@(() => duplicateCreature(creature))" />
+					}
 					<MudIconButton Icon="@Icons.Material.Filled.Delete"
 								   Color="Color.Error"
 								   Size="Size.Small"

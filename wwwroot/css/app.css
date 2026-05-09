@@ -115,7 +115,8 @@ code {
 }
 
 .creature-import-list {
-    max-height: 55dvh;
+    height: 55dvh;
+    max-height: 36rem;
     min-height: 16rem;
     overflow-y: auto;
 }
@@ -231,6 +232,31 @@ code {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.home-content-actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.25rem;
+    padding: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.home-content-action-button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.375rem;
+}
+
+.home-content-action-button .mud-button-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-content-action-button .mud-button-icon-start {
+    margin-inline-end: 0.25rem;
 }
 
 .campaign-combat-index {
