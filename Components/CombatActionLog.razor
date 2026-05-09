@@ -99,11 +99,11 @@ else
 				Add Log Entry
 			</MudButton>
 			<MudButton Variant="Variant.Outlined"
-					   Color="Color.Primary"
-					   StartIcon="@Icons.Material.Filled.LastPage"
-					   Disabled="@(!CanEndTurn)"
-					   OnClick="EndTurn">
-				End Turn
+					   Color="@(IsEndTurnPending ? Color.Warning : Color.Primary)"
+					   StartIcon="@(IsEndTurnPending ? Icons.Material.Filled.Undo : Icons.Material.Filled.LastPage)"
+					   Disabled="@(!CanToggleEndTurn)"
+					   OnClick="ToggleEndTurn">
+				@(IsEndTurnPending ? "Cancel End Turn" : "End Turn")
 			</MudButton>
 			@if (IsEndTurnPending)
 			{
@@ -297,9 +297,8 @@ else
 	private const string HealAmountInputId = "action-log-heal-amount";
 
 	private bool HasWipEntry => _selectedActorGuids.Count > 0 || _wipEffects.Count > 0 || _editingEntryIndex is not null || _editingEffectIndex is not null;
-	private bool IsEndTurnPending => Combat?.ActionLog.Entries.Count > 0
-		&& Combat.ActionLog.CurrentTurn > GetLastTurnIndex();
-	private bool CanEndTurn => Combat?.ActionLog.Entries.Count > 0 && !IsEndTurnPending;
+	private bool IsEndTurnPending => Combat?.ActionLog.IsEndTurnPending == true;
+	private bool CanToggleEndTurn => Combat?.ActionLog.Entries.Count > 0;
 
 	private bool IsEffectDetailPage => _page is ActionLogPopupPage.Damage
 		or ActionLogPopupPage.Condition
@@ -810,9 +809,9 @@ else
 		_page = ActionLogPopupPage.Actors;
 	}
 
-	private void EndTurn()
+	private void ToggleEndTurn()
 	{
-		Combat?.ActionLog.EndTurn();
+		Combat?.ActionLog.ToggleEndTurn();
 	}
 
 	private async Task DeleteEntryClicked()
@@ -833,8 +832,9 @@ else
 			return;
 		}
 
+		var keepEndTurnPending = Combat.ActionLog.IsEndTurnPending;
 		Combat.ActionLog.Entries.RemoveAt(index);
-		Combat.ActionLog.EnsureTurnState();
+		Combat.ActionLog.SyncCurrentTurnAfterEntryMutation(keepEndTurnPending);
 		ResetWipEntry();
 		_popupOpen = false;
 		_page = ActionLogPopupPage.Actors;
@@ -947,6 +947,7 @@ else
 			return;
 		}
 
+		var keepEndTurnPending = Combat.ActionLog.IsEndTurnPending;
 		var boundedTurn = Math.Max(1, turn);
 		var entry = entries[sourceIndex];
 		entries.RemoveAt(sourceIndex);
@@ -958,7 +959,7 @@ else
 		targetIndex = Math.Clamp(targetIndex, 0, entries.Count);
 		entry.Turn = boundedTurn;
 		entries.Insert(targetIndex, entry);
-		Combat.ActionLog.CurrentTurn = Math.Max(Combat.ActionLog.CurrentTurn, GetLastTurnIndex());
+		Combat.ActionLog.SyncCurrentTurnAfterEntryMutation(keepEndTurnPending);
 		EndDraggingEntry();
 	}
 
