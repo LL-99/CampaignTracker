@@ -1,0 +1,8 @@
+::deep .app-bar-logo {
+    display: block;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    max-height: calc(var(--mud-appbar-height) - 12px);
+    object-fit: contain;
+}
