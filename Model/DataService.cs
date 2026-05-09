@@ -17,7 +17,7 @@ namespace CampaignTracker.Model
 
         public void ClearCampaign()
         {
-            Campaign = null;
+            Campaign = new();
         }
 
         public bool TrySetCampaignString(string json)

@@ -1,0 +1,21 @@
+﻿<MudDialog>
+    <TitleContent>
+        Delete Campaign?
+    </TitleContent>
+    <DialogContent>
+        This cannot be undone! Make sure to backup your campaign first if it contains any relevant data!
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+    
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+
+    private void Cancel() => MudDialog.Cancel();
+}

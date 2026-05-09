@@ -5,6 +5,7 @@
 
 @inject IDataService DataService
 @inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
 
 <PageTitle>Campaign Tracking</PageTitle>
 
@@ -23,42 +24,6 @@
 	<MudTabs Class="home-tabs" TabPanelsClass="home-tabs-panels" Style="height: 100%; max-height: 100%;">
 		<MudTabPanel Text="Stats" PanelClass="home-tab-panel">
 			<MudStack Spacing="3" Class="home-panel-scroll">
-				<MudGrid Spacing="2">
-					<MudItem xs="12" Class="d-flex justify-end">
-						<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
-							<MudButton Variant="Variant.Text"
-									   Color="Color.Default"
-									   Size="Size.Small"
-									   OnClick="ExportButtonClicked"
-									   Disabled="@(DataService.Campaign is null)">
-								Export
-							</MudButton>
-							<MudButton Variant="Variant.Text"
-									   Color="Color.Default"
-									   Size="Size.Small"
-									   OnClick="ImportButtonClicked">
-								Import
-							</MudButton>
-							<MudButton Variant="Variant.Outlined"
-									   Color="Color.Primary"
-									   Size="Size.Small"
-									   StartIcon="@Icons.Material.Filled.Add"
-									   OnClick="AddSessionButtonClicked"
-									   Disabled="@(DataService.Campaign is null)">
-								Add Session
-							</MudButton>
-							<MudButton Variant="Variant.Filled"
-									   Color="Color.Primary"
-									   Size="Size.Small"
-									   StartIcon="@Icons.Material.Filled.Add"
-									   OnClick="AddCombatButtonClicked"
-									   Disabled="@(!CanAddCombat)">
-								Add Combat
-							</MudButton>
-						</MudStack>
-					</MudItem>
-				</MudGrid>
-
 				<MudGrid Spacing="3">
 					<MudItem xs="12" sm="6" md="3">
 						<MudPaper Elevation="1" Class="pa-4">
@@ -195,31 +160,45 @@
 			}
 		</MudTabPanel>
 
-		<MudTabPanel Text="Data Transfer" PanelClass="home-tab-panel">
+		<MudTabPanel Text="Data Management" PanelClass="home-tab-panel">
 			<MudPaper Elevation="1" Class="home-fill-container">
-				<MudToolBar Dense="true">
-					<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
-						<MudText Typo="Typo.h6">Campaign Data</MudText>
-						<MudButton Variant="Variant.Text"
-								   Color="Color.Default"
-								   Size="Size.Small"
-								   OnClick="ExportButtonClicked"
-								   Disabled="@(DataService.Campaign is null)">
-							Export
-						</MudButton>
-						<MudButton Variant="Variant.Text"
-								   Color="Color.Default"
-								   Size="Size.Small"
-								   OnClick="ImportButtonClicked">
-							Import
-						</MudButton>
-					</MudStack>
+				<MudToolBar Class="my-2">
+					<MudText Typo="Typo.h5" Style="white-space: nowrap;">Campaign Data</MudText>
+
 					<MudSpacer />
-					<MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-						JSON Preview
-					</MudChip>
+
+					<MudGrid Spacing="2">
+						<MudItem xs="12" Class="d-flex justify-end">
+							<MudStack Row="true" Spacing="1" Class="flex-wrap justify-end">
+								<MudButton Variant="Variant.Outlined"
+										   Color="Color.Primary"
+										   Size="Size.Small"
+										   OnClick="ExportButtonClicked"
+										   Disabled="@(DataService.Campaign is null)">
+									Export
+								</MudButton>
+								<MudButton Variant="Variant.Outlined"
+										   Color="Color.Tertiary"
+										   Size="Size.Small"
+										   OnClick="ImportButtonClicked">
+									Import
+								</MudButton>
+								
+								<MudDivider Vertical Class="mx-2" />
+
+								<MudButton Variant="Variant.Filled"
+										   Color="Color.Secondary"
+										   Size="Size.Small"
+										   OnClick="DeleteButtonClicked">
+									Delete
+								</MudButton>
+							</MudStack>
+						</MudItem>
+					</MudGrid>
 				</MudToolBar>
+				
 				<MudDivider />
+				
 				<pre class="campaign-json-preview">@DataService.GetCampaignString()</pre>
 			</MudPaper>
 		</MudTabPanel>
@@ -247,6 +226,21 @@
 		{
 		}
 	}
+
+	private async Task DeleteButtonClicked()
+	{
+		var options = new DialogOptions { CloseOnEscapeKey = true };
+
+		var dialog = await DialogService.ShowAsync<DeleteDialog>("Delete Dialog", options);
+		var result = await dialog.Result;
+
+		if(result != null && result.Canceled == false)
+		{
+			DataService.ClearCampaign();
+			StateHasChanged();
+		}
+	}
+
 
 	private void AddSessionButtonClicked()
 	{
