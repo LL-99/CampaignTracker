@@ -172,7 +172,7 @@
 	{
 		return enemy.ChallengeRating is null
 			? enemy.Name
-			: $"{enemy.Name} (CR {enemy.ChallengeRating})";
+			: $"{enemy.Name} (CR {enemy.ChallengeRating.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
 	}
 
 	private bool IsPlayerCharacterSelected(PlayerCharacter playerCharacter)

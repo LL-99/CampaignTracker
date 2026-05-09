@@ -141,7 +141,7 @@ namespace CampaignTracker.Model
             };
         }
 
-        private static StaticCreature Static(string name, float hp, int? challengeRating)
+        private static StaticCreature Static(string name, float hp, float? challengeRating)
         {
             return new StaticCreature
             {

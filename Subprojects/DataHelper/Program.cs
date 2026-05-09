@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CampaignTracker.Model.Creatures;
@@ -166,7 +167,7 @@ static float ParseHpAverage(JsonElement hp)
     };
 }
 
-static int? ParseChallengeRating(JsonElement cr)
+static float? ParseChallengeRating(JsonElement cr)
 {
     if (cr.ValueKind == JsonValueKind.Object &&
         cr.TryGetProperty("cr", out var nestedCr))
@@ -179,30 +180,30 @@ static int? ParseChallengeRating(JsonElement cr)
         return ParseChallengeRatingText(crText);
     }
 
-    return cr.ValueKind == JsonValueKind.Number
-        ? (int)Math.Floor(cr.GetDouble())
+    return cr.ValueKind == JsonValueKind.Number && cr.TryGetSingle(out var numericCr)
+        ? numericCr
         : null;
 }
 
-static int? ParseChallengeRatingText(string crText)
+static float? ParseChallengeRatingText(string crText)
 {
     if (string.Equals(crText, "Unknown", StringComparison.OrdinalIgnoreCase))
     {
         return null;
     }
 
-    if (int.TryParse(crText, out var wholeCr))
+    if (float.TryParse(crText, NumberStyles.Float, CultureInfo.InvariantCulture, out var wholeCr))
     {
         return wholeCr;
     }
 
     var fractionParts = crText.Split('/', StringSplitOptions.TrimEntries);
     if (fractionParts.Length == 2 &&
-        double.TryParse(fractionParts[0], out var numerator) &&
-        double.TryParse(fractionParts[1], out var denominator) &&
+        float.TryParse(fractionParts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var numerator) &&
+        float.TryParse(fractionParts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var denominator) &&
         denominator != 0)
     {
-        return (int)Math.Floor(numerator / denominator);
+        return numerator / denominator;
     }
 
     return null;

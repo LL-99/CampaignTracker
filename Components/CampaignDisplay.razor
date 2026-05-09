@@ -132,7 +132,7 @@
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
 					<MudTextField @bind-Value="creature.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
 					<MudNumericField T="float" @bind-Value="creature.Stats.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
-					<MudNumericField T="int?" @bind-Value="creature.ChallengeRating" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					<MudNumericField T="float?" @bind-Value="creature.ChallengeRating" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" />
 					<MudIconButton Icon="@Icons.Material.Filled.Delete"
 								   Color="Color.Error"
 								   Size="Size.Small"

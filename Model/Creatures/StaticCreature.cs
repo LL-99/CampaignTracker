@@ -9,7 +9,7 @@
 
         public CreatureStats Stats { get; set; } = new();
 
-        public int? ChallengeRating { get; set; }
+        public float? ChallengeRating { get; set; }
 
         public string? Source { get; set; }
     }
