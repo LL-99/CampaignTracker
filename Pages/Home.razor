@@ -10,17 +10,26 @@
 
 <PageTitle>Campaign Tracker</PageTitle>
 
-<MudStack Spacing="4" Class="home-page">
-	<MudGrid Spacing="2" Class="home-page-header">
-		<MudItem xs="12" md="8">
-			<MudStack Spacing="1">
-				<MudText Typo="Typo.h4" HtmlTag="h1">Campaign Dashboard</MudText>
-				<MudText Typo="Typo.body1">
-					A tool to track your TTRPG combats and visualize results
-				</MudText>
-			</MudStack>
-		</MudItem>
-	</MudGrid>
+@if (!DataService.IsInitialized)
+{
+	<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="home-page">
+		<MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+		<MudText Typo="Typo.body2" Color="Color.Secondary">Loading campaign data...</MudText>
+	</MudStack>
+}
+else
+{
+	<MudStack Spacing="4" Class="home-page">
+		<MudGrid Spacing="2" Class="home-page-header">
+			<MudItem xs="12" md="8">
+				<MudStack Spacing="1">
+					<MudText Typo="Typo.h4" HtmlTag="h1">Campaign Dashboard</MudText>
+					<MudText Typo="Typo.body1">
+						A tool to track your TTRPG combats and visualize results
+					</MudText>
+				</MudStack>
+			</MudItem>
+		</MudGrid>
 
 	<MudTabs Class="home-tabs" TabPanelsClass="home-tabs-panels" Style="height: 100%; max-height: 100%;">
 		<MudTabPanel Text="Stats" PanelClass="home-tab-panel">
@@ -142,14 +151,15 @@
 						{
 							if (LatestSel.IsSession)
 							{
-								<SessionDisplay Session=@LatestSel.Session SessionDeleted="SessionDeleted" />
+								<SessionDisplay Session=@LatestSel.Session SessionDeleted="SessionDeleted" Changed="PersistCampaign" />
 							}
 							else if (LatestSel.Combat is not null)
 							{
 								<CombatDisplay Combat="@LatestSel.Combat"
 											   Campaign="DataService.Campaign"
 											   CombatDeleted="CombatDeleted"
-											   CombatUpdated="CombatUpdated" />
+											   CombatUpdated="CombatUpdated"
+											   Changed="PersistCampaign" />
 							}
 						}
 					</MudPaper>
@@ -162,7 +172,7 @@
 			{
 				<MudPaper Elevation="1" Class="pa-3 home-fill-container">
 					<MudText Typo="Typo.h5" Class="mb-2">Campaign Config</MudText>
-					<CampaignDisplay Campaign="DataService.Campaign" />
+					<CampaignDisplay Campaign="DataService.Campaign" Changed="PersistCampaign" />
 				</MudPaper>
 			}
 		</MudTabPanel>
@@ -238,7 +248,8 @@
 			</MudPaper>
 		</MudTabPanel>
 	</MudTabs>
-</MudStack>
+	</MudStack>
+}
 
 
 @code {
@@ -246,10 +257,14 @@
 
 	private readonly HashSet<Guid> _expandedSessionGuids = [];
 
+	protected override async Task OnInitializedAsync()
+	{
+		await DataService.InitializeAsync();
+	}
+
 	private async Task ExportButtonClicked()
 	{
 		await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", DataService.GetCampaignString());
-		DataService.ClearCampaign();
 	}
 
 	private async Task ImportButtonClicked()
@@ -257,7 +272,11 @@
 		try
 		{
 			var json = await JSRuntime.InvokeAsync<string>("navigator.clipboard.readText");
-			DataService.TrySetCampaignString(json);
+			if (await DataService.TrySetCampaignStringAsync(json))
+			{
+				LatestSel = null;
+				_expandedSessionGuids.Clear();
+			}
 		}
 		catch (JSException)
 		{
@@ -292,7 +311,7 @@
 			using var reader = new StreamReader(stream);
 			var json = await reader.ReadToEndAsync();
 
-			if (DataService.TrySetCampaignString(json))
+			if (await DataService.TrySetCampaignStringAsync(json))
 			{
 				LatestSel = null;
 				_expandedSessionGuids.Clear();
@@ -313,13 +332,15 @@
 
 		if(result != null && result.Canceled == false)
 		{
-			DataService.ClearCampaign();
+			await DataService.ClearCampaignAsync();
+			LatestSel = null;
+			_expandedSessionGuids.Clear();
 			StateHasChanged();
 		}
 	}
 
 
-	private void AddSessionButtonClicked()
+	private async Task AddSessionButtonClicked()
 	{
 		if (DataService.Campaign is not Campaign campaign)
 		{
@@ -342,9 +363,10 @@
 
 		LatestSel = CampaignElement.FromSession(session);
 		_expandedSessionGuids.Add(session.GUID);
+		await PersistCampaign();
 	}
 
-	private void AddCombatButtonClicked()
+	private async Task AddCombatButtonClicked()
 	{
 		if (DataService.Campaign is not Campaign campaign || GetCombatInsertSession(campaign) is not Session session)
 		{
@@ -366,6 +388,7 @@
 		session.AddCombat(combat, combatIndex);
 		LatestSel = CampaignElement.FromCombat(session, combat);
 		_expandedSessionGuids.Add(session.GUID);
+		await PersistCampaign();
 	}
 
 
@@ -400,7 +423,7 @@
 		}
 	}
 
-	private void SessionDeleted(Session session)
+	private async Task SessionDeleted(Session session)
 	{
 		if (DataService.Campaign is not Campaign campaign)
 		{
@@ -411,9 +434,10 @@
 		campaign.RemoveSession(session);
 		_expandedSessionGuids.Remove(session.GUID);
 		LatestSel = IsValidCampaignElement(replacement) ? replacement : null;
+		await PersistCampaign();
 	}
 
-	private void CombatDeleted(Combat combat)
+	private async Task CombatDeleted(Combat combat)
 	{
 		if (DataService.Campaign is not Campaign campaign)
 		{
@@ -426,27 +450,33 @@
 
 		campaign.RemoveCombat(combat);
 		LatestSel = IsValidCampaignElement(replacement) ? replacement : null;
+		await PersistCampaign();
 	}
 
-	private void CombatUpdated()
+	private async Task CombatUpdated()
 	{
 		if (LatestSel is not { Combat: { } combat } || DataService.Campaign is null)
 		{
 			return;
 		}
 
-		if (LatestSel.ParentSession?.Combats.Any(existing => existing.GUID == combat.GUID) == true)
+		if (LatestSel.ParentSession?.Combats.Any(existing => existing.GUID == combat.GUID) != true)
 		{
-			return;
+			var parentSession = combat.Sessions
+				.OrderBy(session => session.DateUtc)
+				.FirstOrDefault();
+
+			LatestSel = parentSession is null
+				? null
+				: CampaignElement.FromCombat(parentSession, combat);
 		}
 
-		var parentSession = combat.Sessions
-			.OrderBy(session => session.DateUtc)
-			.FirstOrDefault();
+		await PersistCampaign();
+	}
 
-		LatestSel = parentSession is null
-			? null
-			: CampaignElement.FromCombat(parentSession, combat);
+	private async Task PersistCampaign()
+	{
+		await DataService.PersistAsync();
 	}
 
 	private Session? GetCombatInsertSession(Campaign campaign)

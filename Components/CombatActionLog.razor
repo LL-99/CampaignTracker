@@ -276,6 +276,9 @@ else
 	[Parameter]
 	public Combat? Combat { get; set; }
 
+	[Parameter]
+	public EventCallback Changed { get; set; }
+
 	private Guid? _activeCombatGuid;
 	private bool _popupOpen;
 	private ActionLogPopupPage _page = ActionLogPopupPage.Actors;
@@ -615,12 +618,12 @@ else
 				return;
 			}
 
-			if (shouldSave == true)
-			{
-				SaveCurrentEffectDraftIfComplete();
-				SaveEntry();
-				return;
-			}
+				if (shouldSave == true)
+				{
+					SaveCurrentEffectDraftIfComplete();
+					await SaveEntry();
+					return;
+				}
 
 			ResetWipEntry();
 			_page = ActionLogPopupPage.Actors;
@@ -786,7 +789,7 @@ else
 		}, Formatting.None);
 	}
 
-	private void SaveEntry()
+	private async Task SaveEntry()
 	{
 		if (Combat is null || _wipEffects.Count == 0 || _selectedActorGuids.Count == 0)
 		{
@@ -807,11 +810,13 @@ else
 		ResetWipEntry();
 		_popupOpen = false;
 		_page = ActionLogPopupPage.Actors;
+		await NotifyChanged();
 	}
 
-	private void ToggleEndTurn()
+	private async Task ToggleEndTurn()
 	{
 		Combat?.ActionLog.ToggleEndTurn();
+		await NotifyChanged();
 	}
 
 	private async Task DeleteEntryClicked()
@@ -838,6 +843,7 @@ else
 		ResetWipEntry();
 		_popupOpen = false;
 		_page = ActionLogPopupPage.Actors;
+		await NotifyChanged();
 	}
 
 	private async Task DiscardButtonClicked()
@@ -897,9 +903,9 @@ else
 		}
 	}
 
-	private void DropEntry(int targetIndex)
+	private async Task DropEntry(int targetIndex)
 	{
-		DropEntryAt(targetIndex, GetInheritedTurnForEntryDrop(targetIndex));
+		await DropEntryAt(targetIndex, GetInheritedTurnForEntryDrop(targetIndex));
 	}
 
 	private void DragOverTurnDivider(int index)
@@ -912,9 +918,9 @@ else
 		}
 	}
 
-	private void DropEntryOnTurnDivider(int targetIndex, int turn)
+	private async Task DropEntryOnTurnDivider(int targetIndex, int turn)
 	{
-		DropEntryAt(targetIndex, turn);
+		await DropEntryAt(targetIndex, turn);
 	}
 
 	private void DragOverNewTurnDivider()
@@ -927,12 +933,12 @@ else
 		}
 	}
 
-	private void DropEntryIntoNewTurn()
+	private async Task DropEntryIntoNewTurn()
 	{
-		DropEntryAt(Combat?.ActionLog.Entries.Count ?? 0, GetNewTurnIndex());
+		await DropEntryAt(Combat?.ActionLog.Entries.Count ?? 0, GetNewTurnIndex());
 	}
 
-	private void DropEntryAt(int targetIndex, int turn)
+	private async Task DropEntryAt(int targetIndex, int turn)
 	{
 		if (Combat is null || _draggedEntryIndex is not int sourceIndex)
 		{
@@ -961,6 +967,7 @@ else
 		entries.Insert(targetIndex, entry);
 		Combat.ActionLog.SyncCurrentTurnAfterEntryMutation(keepEndTurnPending);
 		EndDraggingEntry();
+		await NotifyChanged();
 	}
 
 	private void EndDraggingEntry()
@@ -990,6 +997,11 @@ else
 	private async Task SelectInputText(string inputId)
 	{
 		await JSRuntime.InvokeVoidAsync("campaignTracker.selectInputText", inputId);
+	}
+
+	private async Task NotifyChanged()
+	{
+		await Changed.InvokeAsync();
 	}
 
 	private void AddActorsAsDefaultTargets(EffectType effectType)

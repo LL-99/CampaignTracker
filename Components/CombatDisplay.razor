@@ -5,12 +5,12 @@
 @inject IDialogService DialogService
 
 <MudStack Spacing="3" Class="detail-display">
-	<MudTextField @bind-Value="Combat.Name" Label="Combat Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+	<MudTextField T="string" Value="@Combat.Name" ValueChanged="SetCombatName" Label="Combat Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
 
 	<MudTabs Elevation="1" Rounded="true" Class="nested-tabs" TabPanelsClass="nested-tab-panels" Style="height: 100%; max-height: 100%;">
 		<MudTabPanel Text="Action Log" PanelClass="nested-tab-panel">
 			<MudStack Class="home-panel-scroll">
-				<CombatActionLog Combat="@Combat" />
+				<CombatActionLog Combat="@Combat" Changed="Changed" />
 			</MudStack>
 		</MudTabPanel>
 
@@ -75,8 +75,8 @@
 										 FilterLabel="Filter NPCs"
 										 Items="AvailableNpcs"
 										 SelectedItems="Combat.Npcs"
-										 ItemAdded="Combat.AddNpc"
-										 ItemRemoved="Combat.RemoveNpc" />
+										 ItemAdded="AddNpc"
+										 ItemRemoved="RemoveNpc" />
 				</MudItem>
 				<MudItem xs="12" md="2">
 					<CreatureMultiSelect TCreature="StaticCreature"
@@ -85,8 +85,8 @@
 										 Items="AvailableEnemies"
 										 SelectedItems="Combat.Enemies"
 										 ItemText="EnemyText"
-										 ItemAdded="Combat.AddEnemy"
-										 ItemRemoved="Combat.RemoveEnemy" />
+										 ItemAdded="AddEnemy"
+										 ItemRemoved="RemoveEnemy" />
 				</MudItem>
 				<MudItem xs="12" md="2">
 					<CreatureMultiSelect TCreature="Environmental"
@@ -95,8 +95,8 @@
 										 Items="AvailableEnvironmentals"
 										 SelectedItems="Combat.Environmentals"
 										 ItemDisabled="IsFixedEnvironmental"
-										 ItemAdded="Combat.AddEnvironmental"
-										 ItemRemoved="Combat.RemoveEnvironmental" />
+										 ItemAdded="AddEnvironmental"
+										 ItemRemoved="RemoveEnvironmental" />
 				</MudItem>
 			</MudGrid>
 		</MudTabPanel>
@@ -154,6 +154,9 @@
 	[Parameter]
 	public EventCallback CombatUpdated { get; set; }
 
+	[Parameter]
+	public EventCallback Changed { get; set; }
+
 	private IReadOnlyCollection<PlayerCharacter> AvailablePlayerCharacters => Combat.Sessions
 		.SelectMany(session => session.PlayerCharacters)
 		.GroupBy(playerCharacter => playerCharacter.GUID)
@@ -202,7 +205,13 @@
 		return Combat.PlayerCharacters.Any(selected => selected.GUID == playerCharacter.GUID);
 	}
 
-	private Task SetPlayerCharacterSelected(PlayerCharacter playerCharacter, bool selected)
+	private async Task SetCombatName(string value)
+	{
+		Combat.Name = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetPlayerCharacterSelected(PlayerCharacter playerCharacter, bool selected)
 	{
 		if (selected)
 		{
@@ -213,7 +222,7 @@
 			Combat.RemovePlayerCharacter(playerCharacter);
 		}
 
-		return Task.CompletedTask;
+		await NotifyChanged();
 	}
 
 	private Guid GetSelectedStatConfigurationGuid(PlayerCharacter playerCharacter)
@@ -221,7 +230,7 @@
 		return Combat.GetSelectedStatConfiguration(playerCharacter)?.GUID ?? Guid.Empty;
 	}
 
-	private Task SetPlayerCharacterStatConfiguration(PlayerCharacter playerCharacter, Guid statConfigurationGuid)
+	private async Task SetPlayerCharacterStatConfiguration(PlayerCharacter playerCharacter, Guid statConfigurationGuid)
 	{
 		var statConfiguration = playerCharacter.StatConfigurations
 			.FirstOrDefault(existing => existing.GUID == statConfigurationGuid);
@@ -229,9 +238,45 @@
 		if (statConfiguration is not null)
 		{
 			Combat.SetSelectedStatConfiguration(playerCharacter, statConfiguration);
+			await NotifyChanged();
 		}
 
-		return Task.CompletedTask;
+	}
+
+	private async Task AddNpc(StaticCreature npc)
+	{
+		Combat.AddNpc(npc);
+		await NotifyChanged();
+	}
+
+	private async Task RemoveNpc(StaticCreature npc)
+	{
+		Combat.RemoveNpc(npc);
+		await NotifyChanged();
+	}
+
+	private async Task AddEnemy(StaticCreature enemy)
+	{
+		Combat.AddEnemy(enemy);
+		await NotifyChanged();
+	}
+
+	private async Task RemoveEnemy(StaticCreature enemy)
+	{
+		Combat.RemoveEnemy(enemy);
+		await NotifyChanged();
+	}
+
+	private async Task AddEnvironmental(Environmental environmental)
+	{
+		Combat.AddEnvironmental(environmental);
+		await NotifyChanged();
+	}
+
+	private async Task RemoveEnvironmental(Environmental environmental)
+	{
+		Combat.RemoveEnvironmental(environmental);
+		await NotifyChanged();
 	}
 
 	private async Task SetSessionAssociation(Session session, bool selected)
@@ -267,5 +312,10 @@
 	{
 		session.SetCombatIndex(Combat, combatIndex);
 		await CombatUpdated.InvokeAsync();
+	}
+
+	private async Task NotifyChanged()
+	{
+		await Changed.InvokeAsync();
 	}
 }

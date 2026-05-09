@@ -22,23 +22,23 @@
 						<MudPaper Elevation="1" Class="pa-3 campaign-config-card">
 							<MudStack Spacing="2">
 								<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-									<MudTextField @bind-Value="playerCharacter.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+									<MudTextField T="string" Value="@playerCharacter.Name" ValueChanged="@((string value) => SetPlayerCharacterName(playerCharacter, value))" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
 									<MudIconButton Icon="@Icons.Material.Filled.Delete"
 												   Color="Color.Error"
 												   Size="Size.Small"
-												   OnClick="@(() => Campaign.RemovePlayerCharacter(playerCharacter))" />
+												   OnClick="@(() => RemovePlayerCharacter(playerCharacter))" />
 								</MudStack>
 
 								<MudText Typo="Typo.subtitle2">Stat Configurations</MudText>
 								@foreach (var statConfiguration in playerCharacter.StatConfigurations.ToList())
 								{
 									<MudStack @key="statConfiguration.GUID" Row="true" AlignItems="AlignItems.Center" Spacing="2">
-										<MudTextField @bind-Value="statConfiguration.ClassesAndLevels" Label="Classes / Levels" Variant="Variant.Outlined" Margin="Margin.Dense" />
-										<MudNumericField T="float" @bind-Value="statConfiguration.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
+										<MudTextField T="string" Value="@statConfiguration.ClassesAndLevels" ValueChanged="@((string value) => SetStatConfigurationClassesAndLevels(statConfiguration, value))" Label="Classes / Levels" Variant="Variant.Outlined" Margin="Margin.Dense" />
+										<MudNumericField T="float" Value="@statConfiguration.HP" ValueChanged="@((float value) => SetStatConfigurationHp(statConfiguration, value))" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
 										<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
 													   Color="Color.Default"
 													   Size="Size.Small"
-													   OnClick="@(() => playerCharacter.StatConfigurations.Remove(statConfiguration))" />
+													   OnClick="@(() => RemoveStatConfiguration(playerCharacter, statConfiguration))" />
 									</MudStack>
 								}
 
@@ -58,14 +58,14 @@
 	</MudTabPanel>
 
 	<MudTabPanel Text="NPCs" PanelClass="nested-tab-panel">
-		@StaticCreaturePanel(Campaign.Npcs, AddNpc, Campaign.RemoveNpc, "Add NPC")
+		@StaticCreaturePanel(Campaign.Npcs, AddNpc, RemoveNpc, "Add NPC")
 	</MudTabPanel>
 
 	<MudTabPanel Text="Enemies" PanelClass="nested-tab-panel">
 		@StaticCreaturePanel(
 			Campaign.Enemies,
 			AddEnemy,
-			Campaign.RemoveEnemy,
+			RemoveEnemy,
 			"Add Enemy",
 			OpenEnemyImportDialog,
 			DuplicateEnemy,
@@ -81,7 +81,10 @@
 	[Parameter]
 	public Campaign Campaign { get; set; } = null!;
 
-	private void AddPlayerCharacter()
+	[Parameter]
+	public EventCallback Changed { get; set; }
+
+	private async Task AddPlayerCharacter()
 	{
 		Campaign.AddPlayerCharacter(new PlayerCharacter
 		{
@@ -95,27 +98,51 @@
 				}
 			]
 		});
+
+		await NotifyChanged();
 	}
 
-	private void AddStatConfiguration(PlayerCharacter playerCharacter)
+	private async Task RemovePlayerCharacter(PlayerCharacter playerCharacter)
+	{
+		Campaign.RemovePlayerCharacter(playerCharacter);
+		await NotifyChanged();
+	}
+
+	private async Task AddStatConfiguration(PlayerCharacter playerCharacter)
 	{
 		playerCharacter.StatConfigurations.Add(new PlayerCharacterStatConfiguration
 		{
 			ClassesAndLevels = "Level 1",
 			HP = 10
 		});
+
+		await NotifyChanged();
 	}
 
-	private void AddNpc()
+	private async Task RemoveStatConfiguration(PlayerCharacter playerCharacter, PlayerCharacterStatConfiguration statConfiguration)
+	{
+		playerCharacter.StatConfigurations.Remove(statConfiguration);
+		await NotifyChanged();
+	}
+
+	private async Task AddNpc()
 	{
 		Campaign.AddNpc(new StaticCreature
 		{
 			Name = "New NPC",
 			Stats = new CreatureStats(10, [], [])
 		});
+
+		await NotifyChanged();
 	}
 
-	private void AddEnemy()
+	private async Task RemoveNpc(StaticCreature npc)
+	{
+		Campaign.RemoveNpc(npc);
+		await NotifyChanged();
+	}
+
+	private async Task AddEnemy()
 	{
 		Campaign.AddEnemy(new StaticCreature
 		{
@@ -123,15 +150,25 @@
 			Stats = new CreatureStats(10, [], []),
 			ChallengeRating = 1
 		});
+
+		await NotifyChanged();
 	}
 
-	private void AddEnvironmental()
+	private async Task RemoveEnemy(StaticCreature enemy)
+	{
+		Campaign.RemoveEnemy(enemy);
+		await NotifyChanged();
+	}
+
+	private async Task AddEnvironmental()
 	{
 		Campaign.AddEnvironmental(new Environmental
 		{
 			Name = "New Environmental",
 			HP = null
 		});
+
+		await NotifyChanged();
 	}
 
 	private async Task OpenEnemyImportDialog()
@@ -156,12 +193,15 @@
 			{
 				Campaign.AddEnemy(creature);
 			}
+
+			await NotifyChanged();
 		}
 	}
 
-	private void DuplicateEnemy(StaticCreature enemy)
+	private async Task DuplicateEnemy(StaticCreature enemy)
 	{
 		Campaign.AddEnemy(CloneStaticCreature(enemy, clearSource: IsSourcedCreature(enemy)));
+		await NotifyChanged();
 	}
 
 	private static bool IsSourcedCreature(StaticCreature creature)
@@ -187,11 +227,11 @@
 
 	private RenderFragment StaticCreaturePanel(
 		IReadOnlyCollection<StaticCreature> creatures,
-		Action addCreature,
-		Action<StaticCreature> removeCreature,
+		Func<Task> addCreature,
+		Func<StaticCreature, Task> removeCreature,
 		string addButtonText,
 		Func<Task>? importCreatures = null,
-		Action<StaticCreature>? duplicateCreature = null,
+		Func<StaticCreature, Task>? duplicateCreature = null,
 		Func<StaticCreature, bool>? isReadOnly = null) => @<MudStack Spacing="3" Class="home-panel-scroll">
 		<MudStack Row="true" Spacing="1" Class="flex-wrap">
 			<MudButton Variant="Variant.Filled"
@@ -221,13 +261,13 @@
 
 			<MudPaper @key="creature.GUID" Elevation="1" Class="pa-3">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
-					<MudTextField @bind-Value="creature.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
+					<MudTextField T="string" Value="@creature.Name" ValueChanged="@((string value) => SetCreatureName(creature, value))" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
 					@if (IsSourcedCreature(creature))
 					{
 						<MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@creature.Source</MudChip>
 					}
-					<MudNumericField T="float" @bind-Value="creature.Stats.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
-					<MudNumericField T="float?" @bind-Value="creature.ChallengeRating" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
+					<MudNumericField T="float" Value="@creature.Stats.HP" ValueChanged="@((float value) => SetCreatureHp(creature, value))" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
+					<MudNumericField T="float?" Value="@creature.ChallengeRating" ValueChanged="@((float? value) => SetCreatureChallengeRating(creature, value))" Label="CR" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
 					@if (duplicateCreature is not null)
 					{
 						<MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
@@ -260,15 +300,74 @@
 
 			<MudPaper @key="environmental.GUID" Elevation="1" Class="pa-3">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
-					<MudTextField @bind-Value="environmental.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isGravity" />
-					<MudNumericField T="float?" @bind-Value="environmental.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isGravity" />
+					<MudTextField T="string" Value="@environmental.Name" ValueChanged="@((string value) => SetEnvironmentalName(environmental, value))" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isGravity" />
+					<MudNumericField T="float?" Value="@environmental.HP" ValueChanged="@((float? value) => SetEnvironmentalHp(environmental, value))" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isGravity" />
 					<MudIconButton Icon="@Icons.Material.Filled.Delete"
 								   Color="Color.Error"
 								   Size="Size.Small"
 								   Disabled="@isGravity"
-								   OnClick="@(() => Campaign.RemoveEnvironmental(environmental))" />
+								   OnClick="@(() => RemoveEnvironmental(environmental))" />
 				</MudStack>
 			</MudPaper>
 		}
 	</MudStack>;
+
+	private async Task SetPlayerCharacterName(PlayerCharacter playerCharacter, string value)
+	{
+		playerCharacter.Name = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetStatConfigurationClassesAndLevels(PlayerCharacterStatConfiguration statConfiguration, string value)
+	{
+		statConfiguration.ClassesAndLevels = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetStatConfigurationHp(PlayerCharacterStatConfiguration statConfiguration, float value)
+	{
+		statConfiguration.HP = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetCreatureName(StaticCreature creature, string value)
+	{
+		creature.Name = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetCreatureHp(StaticCreature creature, float value)
+	{
+		creature.Stats.HP = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetCreatureChallengeRating(StaticCreature creature, float? value)
+	{
+		creature.ChallengeRating = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetEnvironmentalName(Environmental environmental, string value)
+	{
+		environmental.Name = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetEnvironmentalHp(Environmental environmental, float? value)
+	{
+		environmental.HP = value;
+		await NotifyChanged();
+	}
+
+	private async Task RemoveEnvironmental(Environmental environmental)
+	{
+		Campaign.RemoveEnvironmental(environmental);
+		await NotifyChanged();
+	}
+
+	private async Task NotifyChanged()
+	{
+		await Changed.InvokeAsync();
+	}
 }

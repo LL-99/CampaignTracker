@@ -5,20 +5,81 @@ using Newtonsoft.Json;
 
 namespace CampaignTracker.Services
 {
-    public class DataService
+    public class DataService(IIndexedDbService indexedDbService)
         : IDataService
     {
+        private Task? _activePersistTask;
+        private bool _persistAgain;
+
         public Campaign? Campaign { get; private set; }
 
-        public DataService()
+        public bool IsInitialized { get; private set; }
+
+        public string GetCampaignString()
         {
-            Campaign = CreateTestCampaign();
+            return JsonConvert.SerializeObject(Campaign, Formatting.Indented);
+        }
+
+        public async Task InitializeAsync()
+        {
+            if (IsInitialized)
+            {
+                return;
+            }
+
+            var json = await indexedDbService.LoadCampaignJsonAsync();
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                ClearCampaign();
+            }
+            else if (!TrySetCampaignString(json))
+            {
+                ClearCampaign();
+                IsInitialized = true;
+                await PersistAsync();
+                return;
+            }
+
+            IsInitialized = true;
+        }
+
+        public Task PersistAsync()
+        {
+            if (Campaign is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            if (_activePersistTask is { IsCompleted: false })
+            {
+                _persistAgain = true;
+                return _activePersistTask;
+            }
+
+            _activePersistTask = PersistLoopAsync();
+            return _activePersistTask;
+        }
+
+        private async Task PersistLoopAsync()
+        {
+            do
+            {
+                _persistAgain = false;
+                await indexedDbService.SaveCampaignJsonAsync(GetCampaignString());
+            }
+            while (_persistAgain);
         }
 
         public void ClearCampaign()
         {
             Campaign = new();
             Campaign.EnsureDefaultEnvironmentals();
+        }
+
+        public async Task ClearCampaignAsync()
+        {
+            ClearCampaign();
+            await PersistAsync();
         }
 
         public bool TrySetCampaignString(string json)
@@ -42,6 +103,17 @@ namespace CampaignTracker.Services
             InitCampaignReferences(campaign);
             Campaign = campaign;
 
+            return true;
+        }
+
+        public async Task<bool> TrySetCampaignStringAsync(string json)
+        {
+            if (!TrySetCampaignString(json))
+            {
+                return false;
+            }
+
+            await PersistAsync();
             return true;
         }
 

@@ -16,7 +16,7 @@
 
 				<MudGrid Spacing="2">
 					<MudItem xs="12" md="8">
-						<MudTextField @bind-Value="Session.Name" Label="Session Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+						<MudTextField T="string" Value="@Session.Name" ValueChanged="SetSessionName" Label="Session Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
 					</MudItem>
 					<MudItem xs="12" md="4">
 						<MudDatePicker Label="Session Date"
@@ -34,8 +34,8 @@
 											 FilterLabel="Filter players"
 											 Items="Campaign.PlayerCharacters"
 											 SelectedItems="Session.PlayerCharacters"
-											 ItemAdded="Session.AddPlayerCharacter"
-											 ItemRemoved="Session.RemovePlayerCharacter" />
+											 ItemAdded="AddPlayerCharacter"
+											 ItemRemoved="RemovePlayerCharacter" />
 					</MudItem>
 
 					<MudItem xs="12" md="3">
@@ -44,8 +44,8 @@
 											 FilterLabel="Filter NPCs"
 											 Items="Campaign.Npcs"
 											 SelectedItems="Session.Npcs"
-											 ItemAdded="Session.AddNpc"
-											 ItemRemoved="Session.RemoveNpc" />
+											 ItemAdded="AddNpc"
+											 ItemRemoved="RemoveNpc" />
 					</MudItem>
 
 					<MudItem xs="12" md="3">
@@ -55,8 +55,8 @@
 											 Items="Campaign.Enemies"
 											 SelectedItems="Session.Enemies"
 											 ItemText="EnemyText"
-											 ItemAdded="Session.AddEnemy"
-											 ItemRemoved="Session.RemoveEnemy" />
+											 ItemAdded="AddEnemy"
+											 ItemRemoved="RemoveEnemy" />
 					</MudItem>
 
 					<MudItem xs="12" md="3">
@@ -66,8 +66,8 @@
 											 Items="Campaign.Environmentals"
 											 SelectedItems="Session.Environmentals"
 											 ItemDisabled="IsFixedEnvironmental"
-											 ItemAdded="Session.AddEnvironmental"
-											 ItemRemoved="Session.RemoveEnvironmental" />
+											 ItemAdded="AddEnvironmental"
+											 ItemRemoved="RemoveEnvironmental" />
 					</MudItem>
 				</MudGrid>
 			</MudStack>
@@ -98,6 +98,9 @@
 	[Parameter]
 	public EventCallback<Session> SessionDeleted { get; set; }
 
+	[Parameter]
+	public EventCallback Changed { get; set; }
+
 	private Campaign Campaign => Session.Campaign;
 
 	private int SessionIndex
@@ -114,15 +117,69 @@
 
 	private DateTime? LocalSessionDate => Session.DateUtc.ToLocalTime().Date;
 
-	private Task SetLocalSessionDate(DateTime? value)
+	private async Task SetSessionName(string value)
+	{
+		Session.Name = value;
+		await NotifyChanged();
+	}
+
+	private async Task SetLocalSessionDate(DateTime? value)
 	{
 		if (value is not DateTime localDate)
 		{
-			return Task.CompletedTask;
+			return;
 		}
 
 		Session.DateUtc = DateTime.SpecifyKind(localDate.Date, DateTimeKind.Local).ToUniversalTime();
-		return Task.CompletedTask;
+		await NotifyChanged();
+	}
+
+	private async Task AddPlayerCharacter(PlayerCharacter playerCharacter)
+	{
+		Session.AddPlayerCharacter(playerCharacter);
+		await NotifyChanged();
+	}
+
+	private async Task RemovePlayerCharacter(PlayerCharacter playerCharacter)
+	{
+		Session.RemovePlayerCharacter(playerCharacter);
+		await NotifyChanged();
+	}
+
+	private async Task AddNpc(StaticCreature npc)
+	{
+		Session.AddNpc(npc);
+		await NotifyChanged();
+	}
+
+	private async Task RemoveNpc(StaticCreature npc)
+	{
+		Session.RemoveNpc(npc);
+		await NotifyChanged();
+	}
+
+	private async Task AddEnemy(StaticCreature enemy)
+	{
+		Session.AddEnemy(enemy);
+		await NotifyChanged();
+	}
+
+	private async Task RemoveEnemy(StaticCreature enemy)
+	{
+		Session.RemoveEnemy(enemy);
+		await NotifyChanged();
+	}
+
+	private async Task AddEnvironmental(Environmental environmental)
+	{
+		Session.AddEnvironmental(environmental);
+		await NotifyChanged();
+	}
+
+	private async Task RemoveEnvironmental(Environmental environmental)
+	{
+		Session.RemoveEnvironmental(environmental);
+		await NotifyChanged();
 	}
 
 	private static string EnemyText(StaticCreature enemy)
@@ -149,5 +206,10 @@
 		{
 			await SessionDeleted.InvokeAsync(Session);
 		}
+	}
+
+	private async Task NotifyChanged()
+	{
+		await Changed.InvokeAsync();
 	}
 }
