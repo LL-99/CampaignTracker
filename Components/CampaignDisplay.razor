@@ -18,7 +18,7 @@
 			<MudGrid Spacing="2">
 				@foreach (var playerCharacter in Campaign.PlayerCharacters.OrderBy(playerCharacter => playerCharacter.DisplayName).ToList())
 				{
-					<MudItem xs="12" md="6">
+					<MudItem @key="playerCharacter.GUID" xs="12" md="6">
 						<MudPaper Elevation="1" Class="pa-3 campaign-config-card">
 							<MudStack Spacing="2">
 								<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -32,7 +32,7 @@
 								<MudText Typo="Typo.subtitle2">Stat Configurations</MudText>
 								@foreach (var statConfiguration in playerCharacter.StatConfigurations.ToList())
 								{
-									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+									<MudStack @key="statConfiguration.GUID" Row="true" AlignItems="AlignItems.Center" Spacing="2">
 										<MudTextField @bind-Value="statConfiguration.ClassesAndLevels" Label="Classes / Levels" Variant="Variant.Outlined" Margin="Margin.Dense" />
 										<MudNumericField T="float" @bind-Value="statConfiguration.HP" Label="HP" Variant="Variant.Outlined" Margin="Margin.Dense" />
 										<MudIconButton Icon="@Icons.Material.Filled.RemoveCircleOutline"
@@ -206,7 +206,7 @@
 		{
 			var isReadOnlyCreature = isReadOnly?.Invoke(creature) == true;
 
-			<MudPaper Elevation="1" Class="pa-3">
+			<MudPaper @key="creature.GUID" Elevation="1" Class="pa-3">
 				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
 					<MudTextField @bind-Value="creature.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@isReadOnlyCreature" />
 					@if (IsSourcedCreature(creature))

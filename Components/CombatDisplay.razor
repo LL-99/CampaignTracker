@@ -39,7 +39,7 @@
 								{
 									var isSelected = IsPlayerCharacterSelected(playerCharacter);
 
-									<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="combat-player-row">
+									<MudStack @key="playerCharacter.GUID" Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="combat-player-row">
 										<MudCheckBox T="bool"
 													 Dense="true"
 													 Label="@playerCharacter.DisplayName"
@@ -53,11 +53,11 @@
 													   ValueChanged="@((Guid statConfigurationGuid) => SetPlayerCharacterStatConfiguration(playerCharacter, statConfigurationGuid))"
 													   Dense="true"
 													   Margin="Margin.Dense"
-													   Variant="Variant.Outlined"
-													   Class="combat-stat-select">
+											   Variant="Variant.Outlined"
+											   Class="combat-stat-select">
 												@foreach (var statConfiguration in playerCharacter.StatConfigurations.OrderByDescending(statConfiguration => statConfiguration.HP))
 												{
-													<MudSelectItem T="Guid" Value="@statConfiguration.GUID">
+													<MudSelectItem @key="statConfiguration.GUID" T="Guid" Value="@statConfiguration.GUID">
 														@statConfiguration.ClassesAndLevels (@statConfiguration.HP HP)
 													</MudSelectItem>
 												}
@@ -104,7 +104,7 @@
 					{
 						var isAssociated = Combat.Sessions.Any(existing => existing.GUID == session.GUID);
 
-						<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="combat-session-row">
+						<MudStack @key="session.GUID" Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="combat-session-row">
 							<MudCheckBox T="bool"
 										 Dense="true"
 										 Label="@($"{session.DateUtc.ToLocalTime():d} - {session.Name}")"

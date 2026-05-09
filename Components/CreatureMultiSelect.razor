@@ -22,6 +22,7 @@
 			@foreach (var creature in FilteredItems)
 			{
 				<MudCheckBox T="bool"
+							 @key="creature.GUID"
 							 Dense="true"
 							 Label="@GetItemText(creature)"
 							 Value="@IsSelected(creature)"
